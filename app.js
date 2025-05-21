@@ -11,7 +11,7 @@ dotenv.config();
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
-const ADMIN_IDS = process.env.ADMIN_IDS.split(",").map(id => parseInt(id));
+const ADMIN_IDS = process.env.ADMIN_IDS;
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 const app = express();
