@@ -21,10 +21,19 @@ app.use(bodyParser.json());
 app.use(cors());
 
 
-mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("✅ Підключено до MongoDB"))
-  .catch(err => console.error("❌ Помилка підключення до MongoDB:", err));
+mongoose.connect(MONGODB_URI, {
+  serverSelectionTimeoutMS: 30000, 
+  socketTimeoutMS: 45000, 
+  connectTimeoutMS: 30000, 
+  bufferMaxEntries: 0, 
+  maxPoolSize: 10, 
 
+})
+.then(() => console.log("✅ Підключено до MongoDB"))
+.catch(err => {
+  console.error("❌ Помилка підключення до MongoDB:", err);
+  process.exit(1); // Завершити процес при критичній помилці
+});
 
 const menuSchema = new mongoose.Schema({
   id: Number,
