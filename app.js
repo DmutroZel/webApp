@@ -11,7 +11,7 @@ dotenv.config();
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
-const ADMIN_IDS = process.env.ADMIN_IDS;
+const ADMIN_IDS = process.env.ADMIN_IDS.split(",").map(id => parseInt(id));
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 const app = express();
@@ -133,7 +133,7 @@ app.get("/orders", async (req, res) => {
   res.json(orders);
 });
 
-app.patch("/orders/:id", async (req, res) => {
+app.post("/orders/update-status/:id", async (req, res) => {
   const { adminId, status } = req.body;
   if (!ADMIN_IDS.includes(parseInt(adminId))) {
     return res.status(403).json({ error: "Доступ заборонено" });
@@ -147,7 +147,6 @@ app.patch("/orders/:id", async (req, res) => {
   bot.sendMessage(order.chatId, `Статус замовлення: ${status}`);
   res.json({ success: true });
 });
-
 
 app.get("/admin", (req, res) => {
   const adminId = parseInt(req.query.adminId);
