@@ -22,17 +22,36 @@ app.use(cors());
 
 
 mongoose.connect(MONGODB_URI, {
-  serverSelectionTimeoutMS: 30000, 
-  socketTimeoutMS: 45000, 
-  connectTimeoutMS: 30000, 
-  bufferMaxEntries: 0, 
-  maxPoolSize: 10, 
-
+  serverSelectionTimeoutMS: 30000, // 30 секунд для підключення
+  socketTimeoutMS: 45000, // 45 секунд для операцій
+  connectTimeoutMS: 30000, // 30 секунд для initial connection
+  maxPoolSize: 10, // Максимум 10 з'єднань в пулі
+  minPoolSize: 5, // Мінімум 5 з'єднань в пулі
 })
 .then(() => console.log("✅ Підключено до MongoDB"))
 .catch(err => {
   console.error("❌ Помилка підключення до MongoDB:", err);
   process.exit(1); // Завершити процес при критичній помилці
+});
+
+// Також додай обробку помилок з'єднання:
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ MongoDB disconnected');
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('✅ MongoDB reconnected');
+});
+
+// Додай graceful shutdown
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  console.log('📋 MongoDB connection closed');
+  process.exit(0);
 });
 
 const menuSchema = new mongoose.Schema({
