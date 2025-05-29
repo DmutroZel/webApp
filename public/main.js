@@ -233,7 +233,7 @@ function checkout() {
                 $("#cartOverlay").css("display", "none");
                 $("#cartContainer").removeClass("active");
                 telegramApp.sendData(JSON.stringify(orderData));
-            }, 3000);
+            }, 1000);
         }
     });
     
