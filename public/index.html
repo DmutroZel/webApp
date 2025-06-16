@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <div class="container">
+ <div class="container">
     <div class="header">
       <div class="logo">🍕 FoodNow</div>
       <button class="cart-button" id="openCart">
@@ -30,10 +30,11 @@
     </div>
 
     <div id="menuContainer">
-    
+      <div class="loading">
+        <div class="spinner"></div>
+      </div>
     </div>
   </div>
-
 
   <div class="cart-overlay" id="cartOverlay">
     <div class="cart-container" id="cartContainer">
@@ -42,13 +43,11 @@
         <button class="close-cart" id="closeCart">×</button>
       </div>
       <div class="cart-items" id="cartItems">
-     
       </div>
       <div class="cart-total" id="cartTotal">Разом: 0 грн</div>
       <button class="checkout-btn" id="checkoutBtn">Оформити замовлення</button>
     </div>
   </div>
-
 
   <div class="success-modal" id="successModal">
     <div class="success-icon">✓</div>
@@ -56,6 +55,7 @@
     <p>Ваше замовлення успішно оформлено.</p>
     <p>Статус замовлення: <strong>Очікується</strong></p>
   </div>
+
 <script src="./main.js"></script>
 </body>
 </html>

@@ -1,285 +1,282 @@
-let telegramApp = window.Telegram.WebApp;
-telegramApp.expand();
+    let telegramApp = window.Telegram?.WebApp;
+    if (telegramApp) {
+      telegramApp.expand();
+    }
 
-let menuItems = [];
-let cartItems = [];
+    let menuItems = [];
+    let cartItems = [];
 
-function loadMenu() {
-    let request = axios.get("/menu");
-    request.then(function(response) {
-        menuItems = response.data;
+    // Тестові дані меню для демонстрації
+    const sampleMenu = [
+      {
+        id: 1,
+        name: "Маргарита",
+        description: "Класична піца з томатами та моцарелою",
+        price: 150,
+        image: "https://via.placeholder.com/200x120/FF8A50/FFFFFF?text=Маргарита",
+        category: "pizza"
+      },
+      {
+        id: 2,
+        name: "Пепероні",
+        description: "Піца з пепероні та сиром",
+        price: 180,
+        image: "https://via.placeholder.com/200x120/FF8A50/FFFFFF?text=Пепероні",
+        category: "pizza"
+      },
+      {
+        id: 3,
+        name: "Класичний бургер",
+        description: "Бургер з яловичиною, сиром та овочами",
+        price: 120,
+        image: "https://via.placeholder.com/200x120/FF8A50/FFFFFF?text=Бургер",
+        category: "burger"
+      },
+      {
+        id: 4,
+        name: "Філадельфія",
+        description: "Рол з лососем, огірком та сиром",
+        price: 200,
+        image: "https://via.placeholder.com/200x120/FF8A50/FFFFFF?text=Філадельфія",
+        category: "sushi"
+      },
+      {
+        id: 5,
+        name: "Тірамісу",
+        description: "Італійський десерт з маскарпоне",
+        price: 85,
+        image: "https://via.placeholder.com/200x120/FF8A50/FFFFFF?text=Тірамісу",
+        category: "dessert"
+      },
+      {
+        id: 6,
+        name: "Кока-Кола",
+        description: "Освіжаючий напій 0.33л",
+        price: 30,
+        image: "https://via.placeholder.com/200x120/FF8A50/FFFFFF?text=Кола",
+        category: "drink"
+      }
+    ];
+
+    function loadMenu() {
+      // Імітуємо запит до сервера
+      setTimeout(() => {
+        menuItems = sampleMenu;
         displayMenu("all");
-    });
-    request.catch(function(error) {
-        console.error("Помилка завантаження меню:", error);
-    });
-}
+      }, 500);
+    }
 
-function displayMenu(category) {
-    let menuContainer = $("#menuContainer");
-    menuContainer.empty();
-    
-    let menuGrid = $("<div>");
-    menuGrid.addClass("menu-grid");
-    
-    let itemsToShow = [];
-    if (category === "all") {
-        for (let i = 0; i < menuItems.length; i++) {
-            itemsToShow.push(menuItems[i]);
-        }
-    } else {
-        for (let i = 0; i < menuItems.length; i++) {
-            if (menuItems[i].category === category) {
-                itemsToShow.push(menuItems[i]);
-            }
-        }
-    }
-    
-    for (let i = 0; i < itemsToShow.length; i++) {
-        let item = itemsToShow[i];
-        let card = $("<div>");
-        card.addClass("dish-card");
-        card.html(
-            '<img src="' + item.image + '" alt="' + item.name + '" class="dish-image">' +
-            '<div class="dish-info">' +
-                '<h3 class="dish-name">' + item.name + '</h3>' +
-                '<p class="dish-description">' + item.description + '</p>' +
-                '<div class="dish-price-add">' +
-                    '<span class="dish-price">' + item.price + ' грн</span>' +
-                    '<button class="add-to-cart" data-id="' + item.id + '">+</button>' +
-                '</div>' +
-            '</div>'
-        );
+    function displayMenu(category) {
+      let menuContainer = $("#menuContainer");
+      menuContainer.empty();
+      
+      let menuGrid = $("<div>");
+      menuGrid.addClass("menu-grid");
+      
+      let itemsToShow = [];
+      if (category === "all") {
+        itemsToShow = [...menuItems];
+      } else {
+        itemsToShow = menuItems.filter(item => item.category === category);
+      }
+      
+      if (itemsToShow.length === 0) {
+        menuContainer.html('<div class="no-items">В цій категорії поки немає страв</div>');
+        return;
+      }
+      
+      itemsToShow.forEach(item => {
+        let card = $(`
+          <div class="dish-card">
+            <img src="${item.image}" alt="${item.name}" class="dish-image" onerror="this.src='https://via.placeholder.com/200x120/FF8A50/FFFFFF?text=Зображення'">
+            <div class="dish-info">
+              <h3 class="dish-name">${item.name}</h3>
+              <p class="dish-description">${item.description}</p>
+              <div class="dish-price-add">
+                <span class="dish-price">${item.price} грн</span>
+                <button class="add-to-cart" data-id="${item.id}">+</button>
+              </div>
+            </div>
+          </div>
+        `);
         menuGrid.append(card);
-    }
-    
-    menuContainer.append(menuGrid);
-    
-    let addToCartButtons = $(".add-to-cart");
-    addToCartButtons.on("click", function() {
+      });
+      
+      menuContainer.append(menuGrid);
+      
+      $(".add-to-cart").on("click", function() {
         let itemId = parseInt($(this).data("id"));
         addToCart(itemId);
-    });
-}
+      });
+    }
 
-function addToCart(itemId) {
-    let item = null;
-    for (let i = 0; i < menuItems.length; i++) {
-        if (menuItems[i].id === itemId) {
-            item = menuItems[i];
-            break;
-        }
+    function addToCart(itemId) {
+      let item = menuItems.find(item => item.id === itemId);
+      if (!item) return;
+      
+      let existingItem = cartItems.find(cartItem => cartItem.id === itemId);
+      
+      if (existingItem) {
+        existingItem.quantity += 1;
+      } else {
+        cartItems.push({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: 1
+        });
+      }
+      
+      updateCartCount();
+      
+      // Анімація додавання
+      let button = $(`.add-to-cart[data-id="${itemId}"]`);
+      button.text('✓').css('background', '#4CAF50');
+      setTimeout(() => {
+        button.text('+').css('background', '');
+      }, 500);
     }
-    if (item === null) {
-        return;
-    }
-    
-    let existingItem = null;
-    for (let i = 0; i < cartItems.length; i++) {
-        if (cartItems[i].id === itemId) {
-            existingItem = cartItems[i];
-            break;
-        }
-    }
-    
-    if (existingItem) {
-        existingItem.quantity = existingItem.quantity + 1;
-    } else {
-        let newItem = {
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: 1
-        };
-        cartItems.push(newItem);
-    }
-    
-    updateCartCount();
-}
 
-function updateCartCount() {
-    let totalCount = 0;
-    for (let i = 0; i < cartItems.length; i++) {
-        totalCount = totalCount + cartItems[i].quantity;
+    function updateCartCount() {
+      let totalCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+      $("#cartCount").text(totalCount);
     }
-    $("#cartCount").text(totalCount);
-}
 
-function updateCartItems() {
-    let cartItemsContainer = $("#cartItems");
-    cartItemsContainer.empty();
-    
-    if (cartItems.length === 0) {
+    function updateCartItems() {
+      let cartItemsContainer = $("#cartItems");
+      cartItemsContainer.empty();
+      
+      if (cartItems.length === 0) {
         cartItemsContainer.html('<div class="no-items">Ваш кошик порожній</div>');
+        updateTotal();
         return;
-    }
-    
-    for (let i = 0; i < cartItems.length; i++) {
-        let item = cartItems[i];
-        let cartItem = $("<div>");
-        cartItem.addClass("cart-item");
-        cartItem.html(
-            '<div class="cart-item-info">' +
-                '<h3 class="cart-item-name">' + item.name + '</h3>' +
-                '<div class="cart-item-price">' + item.price + ' грн</div>' +
-            '</div>' +
-            '<div class="cart-item-quantity">' +
-                '<button class="quantity-btn decrease" data-id="' + item.id + '">-</button>' +
-                '<span>' + item.quantity + '</span>' +
-                '<button class="quantity-btn increase" data-id="' + item.id + '">+</button>' +
-            '</div>'
-        );
+      }
+      
+      cartItems.forEach(item => {
+        let cartItem = $(`
+          <div class="cart-item">
+            <div class="cart-item-info">
+              <h3 class="cart-item-name">${item.name}</h3>
+              <div class="cart-item-price">${item.price} грн</div>
+            </div>
+            <div class="cart-item-quantity">
+              <button class="quantity-btn decrease" data-id="${item.id}">-</button>
+              <span>${item.quantity}</span>
+              <button class="quantity-btn increase" data-id="${item.id}">+</button>
+            </div>
+          </div>
+        `);
         cartItemsContainer.append(cartItem);
-    }
-    
-    let decreaseButtons = $(".decrease");
-    decreaseButtons.on("click", function() {
+      });
+      
+      $(".decrease").on("click", function() {
         let itemId = parseInt($(this).data("id"));
         decreaseQuantity(itemId);
-    });
-    
-    let increaseButtons = $(".increase");
-    increaseButtons.on("click", function() {
+      });
+      
+      $(".increase").on("click", function() {
         let itemId = parseInt($(this).data("id"));
         increaseQuantity(itemId);
-    });
-    
-    updateTotal();
-}
-
-function increaseQuantity(itemId) {
-    let item = null;
-    for (let i = 0; i < cartItems.length; i++) {
-        if (cartItems[i].id === itemId) {
-            item = cartItems[i];
-            break;
-        }
+      });
+      
+      updateTotal();
     }
-    
-    if (item) {
-        item.quantity = item.quantity + 1;
+
+    function increaseQuantity(itemId) {
+      let item = cartItems.find(item => item.id === itemId);
+      if (item) {
+        item.quantity += 1;
         updateCartItems();
         updateCartCount();
+      }
     }
-}
 
-function decreaseQuantity(itemId) {
-    let item = null;
-    for (let i = 0; i < cartItems.length; i++) {
-        if (cartItems[i].id === itemId) {
-            item = cartItems[i];
-            break;
-        }
-    }
-    
-    if (item) {
-        item.quantity = item.quantity - 1;
+    function decreaseQuantity(itemId) {
+      let item = cartItems.find(item => item.id === itemId);
+      if (item) {
+        item.quantity -= 1;
         if (item.quantity <= 0) {
-            let newCart = [];
-            for (let i = 0; i < cartItems.length; i++) {
-                if (cartItems[i].id !== itemId) {
-                    newCart.push(cartItems[i]);
-                }
-            }
-            cartItems = newCart;
+          cartItems = cartItems.filter(cartItem => cartItem.id !== itemId);
         }
         updateCartItems();
         updateCartCount();
+      }
     }
-}
 
-function updateTotal() {
-    let totalSum = 0;
-    for (let i = 0; i < cartItems.length; i++) {
-        totalSum = totalSum + (cartItems[i].price * cartItems[i].quantity);
+    function updateTotal() {
+      let totalSum = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      $("#cartTotal").text("Разом: " + totalSum + " грн");
     }
-    $("#cartTotal").text("Разом: " + totalSum + " грн");
-}
 
-function checkout() {
-    if (cartItems.length === 0) {
+    function checkout() {
+      if (cartItems.length === 0) {
+        alert("Додайте товари до кошика");
         return;
-    }
-    
-    console.log("Telegram WebApp Data:", telegramApp.initDataUnsafe);
-    
-    let totalSum = 0;
-    for (let i = 0; i < cartItems.length; i++) {
-        totalSum = totalSum + (cartItems[i].price * cartItems[i].quantity);
-    }
-    
-    let orderData = {
-        chatId: telegramApp.initDataUnsafe.user ? telegramApp.initDataUnsafe.user.id : "unknown",
-        userName: telegramApp.initDataUnsafe.user ? telegramApp.initDataUnsafe.user.username : "unknown",
+      }
+      
+      let totalSum = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      let orderData = {
+        chatId: telegramApp?.initDataUnsafe?.user?.id || "demo_user",
+        userName: telegramApp?.initDataUnsafe?.user?.username || "demo_user",
         items: cartItems,
         total: totalSum,
         status: "Очікується",
         dateTime: new Date().toISOString()
-    };
-    
-    let request = axios.post("/orders", orderData, {
-        headers: { "Content-Type": "application/json" }
-    });
-    
-    request.then(function(response) {
-        if (response.data.success) {
-            $("#successModal").css("display", "block");
-            cartItems = [];
-            updateCartItems();
-            updateCartCount();
-            
-            setTimeout(function() {
-                $("#successModal").css("display", "none");
-                $("#cartOverlay").css("display", "none");
-                $("#cartContainer").removeClass("active");
-                telegramApp.sendData(JSON.stringify(orderData));
-            }, 1000);
-        }
-    });
-    
-    request.catch(function(error) {
-        console.error("Помилка при оформленні замовлення:", error);
-    });
-}
+      };
+      
+      // Імітуємо успішне оформлення замовлення
+      setTimeout(() => {
+        $("#successModal").css("display", "block");
+        cartItems = [];
+        updateCartItems();
+        updateCartCount();
+        
+        setTimeout(() => {
+          $("#successModal").css("display", "none");
+          $("#cartOverlay").css("display", "none");
+          $("#cartContainer").removeClass("active");
+          
+          if (telegramApp) {
+            telegramApp.sendData(JSON.stringify(orderData));
+          }
+        }, 2000);
+      }, 500);
+    }
 
-$(document).ready(function() {
-    loadMenu();
-    
-    let categoryButtons = $(".category");
-    categoryButtons.on("click", function() {
-        categoryButtons.removeClass("active");
+    $(document).ready(function() {
+      loadMenu();
+      
+      $(".category").on("click", function() {
+        $(".category").removeClass("active");
         $(this).addClass("active");
         let category = $(this).data("category");
         displayMenu(category);
-    });
-    
-    let openCartButton = $("#openCart");
-    openCartButton.on("click", function() {
+      });
+      
+      $("#openCart").on("click", function() {
         $("#cartOverlay").css("display", "block");
         updateCartItems();
-        setTimeout(function() {
-            $("#cartContainer").addClass("active");
+        setTimeout(() => {
+          $("#cartContainer").addClass("active");
         }, 10);
-    });
-    
-    let closeCartButton = $("#closeCart");
-    closeCartButton.on("click", function() {
+      });
+      
+      $("#closeCart").on("click", function() {
         $("#cartContainer").removeClass("active");
-        setTimeout(function() {
-            $("#cartOverlay").css("display", "none");
+        setTimeout(() => {
+          $("#cartOverlay").css("display", "none");
         }, 300);
-    });
-    
-    let cartOverlay = $("#cartOverlay");
-    cartOverlay.on("click", function(event) {
+      });
+      
+      $("#cartOverlay").on("click", function(event) {
         if (event.target === this) {
-            $("#cartContainer").removeClass("active");
-            setTimeout(function() {
-                $("#cartOverlay").css("display", "none");
-            }, 300);
+          $("#cartContainer").removeClass("active");
+          setTimeout(() => {
+            $("#cartOverlay").css("display", "none");
+          }, 300);
         }
+      });
+      
+      $("#checkoutBtn").on("click", checkout);
     });
-    
-    let checkoutButton = $("#checkoutBtn");
-    checkoutButton.on("click", checkout);
-});
