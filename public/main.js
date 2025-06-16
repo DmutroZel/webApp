@@ -63,7 +63,7 @@
       setTimeout(() => {
         menuItems = sampleMenu;
         displayMenu("all");
-      }, 500);
+      }, 50000);
     }
 
     function displayMenu(category) {
