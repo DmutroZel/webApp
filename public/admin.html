@@ -5,102 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FoodNow - Панель адміністратора</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.js' integrity='sha512-+k1pnlgt4F1H8L7t3z95o3/KO+o78INEcXTbnoJQ/F2VqDVhWoaiVml/OEHv9HsVgxUaVW+IbiZPUJQfF/YxZw==' crossorigin='anonymous'></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script><script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <div class="container">
-    <h2>📋 Замовлення</h2>
-    <div id="ordersContainer"></div>
+    <h2>📋 Панель адміністратора</h2>
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="orders">Замовлення</button>
+      <button class="admin-tab" data-tab="menu">Меню</button>
+      <button class="admin-tab" data-tab="categories">Категорії</button>
+    </div>
+    <div id="ordersContainer" class="tab-content active"></div>
+    <div id="menuContainer" class="tab-content" style="display: none;">
+      <h3>Додати страву</h3>
+      <form id="addMenuItemForm">
+        <input type="text" id="itemName" placeholder="Назва" required>
+        <textarea id="itemDescription" placeholder="Опис" required></textarea>
+        <input type="number" id="itemPrice" placeholder="Ціна (грн)" required min="1">
+        <input type="text" id="itemImage" placeholder="URL зображення" value="/api/placeholder/200/120">
+        <select id="itemCategory" required></select>
+        <button type="submit">Додати</button>
+      </form>
+      <h3>Список страв</h3>
+      <div id="menuItemsList"></div>
+    </div>
+    <div id="categoriesContainer" class="tab-content" style="display: none;">
+      <h3>Додати категорію</h3>
+      <form id="addCategoryForm">
+        <input type="text" id="categoryName" placeholder="Назва категорії" required>
+        <input type="text" id="categoryId" placeholder="ID категорії (англійською, без пробілів)" required>
+        <button type="submit">Додати</button>
+      </form>
+      <h3>Список категорій</h3>
+      <div id="categoriesList"></div>
+    </div>
   </div>
-<form id="addMenuItemForm">
-  <input type="text" id="itemName" placeholder="Назва" required>
-  <input type="text" id="itemDescription" placeholder="Опис" required>
-  <input type="number" id="itemPrice" placeholder="Ціна (грн)" required>
-  <input type="text" id="itemImage" placeholder="URL зображення" value="/api/placeholder/200/120">
-  <select id="itemCategory" required>
-    <option value="pizza">Піца</option>
-    <option value="burger">Бургери</option>
-    <option value="drink">Напої</option>
-  </select>
-  <button type="submit">Додати</button>
-</form>
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-
-    const adminId = new URLSearchParams(window.location.search).get("adminId");
-
-    function loadOrders() {
-      $.get(`/orders?adminId=${adminId}`, (orders) => {
-        const container = $("#ordersContainer");
-        container.empty();
-        orders.forEach(order => {
-          const itemsList = order.items.map(item => `${item.name} x${item.quantity} - ${item.price * item.quantity} грн`).join("<br>");
-          const card = `
-            <div class="order-card">
-              <h3>Замовлення від @${order.userName} (ID: ${order.chatId})</h3>
-              <p><strong>Час:</strong> ${new Date(order.dateTime).toLocaleString()}</p>
-              <p><strong>Товари:</strong><br>${itemsList}</p>
-              <p><strong>Сума:</strong> ${order.total} грн</p>
-              <p><strong>Статус:</strong>
-                <select class="status-select" data-id="${order._id}">
-                  <option value="Очікується" ${order.status === "Очікується" ? "selected" : ""}>Очікується</option>
-                  <option value="Опрацьовується" ${order.status === "Опрацьовується" ? "selected" : ""}>Опрацьовується</option>
-                  <option value="Виконано" ${order.status === "Виконано" ? "selected" : ""}>Виконано</option>
-                </select>
-              </p>
-            </div>
-          `;
-          container.append(card);
-        });
-
-        $(".status-select").change(function() {
-          const orderId = $(this).data("id");
-          const newStatus = $(this).val();
-          $.ajax({
-            url: `/orders/${orderId}`,
-            method: "PATCH",
-            contentType: "application/json",
-            data: JSON.stringify({ adminId, status: newStatus }),
-            success: () => alert("Статус оновлено!"),
-            error: (err) => alert("Помилка: " + err.responseJSON.error),
-          });
-        });
-      });
-    }
-
-    $(document).ready(() => {
-      loadOrders();
-      setInterval(loadOrders, 30000); 
-    });
-
-
-
-    $("#addMenuItemForm").submit((e) => {
-  e.preventDefault();
-  const newItem = {
-    adminId,
-    name: $("#itemName").val(),
-    description: $("#itemDescription").val(),
-    price: parseInt($("#itemPrice").val()),
-    image: $("#itemImage").val(),
-    category: $("#itemCategory").val()
-  };
-  $.ajax({
-    url: "/menu",
-    method: "POST",
-    contentType: "application/json",
-    data: JSON.stringify(newItem),
-    success: () => {
-      alert("Страву додано!");
-      $("#addMenuItemForm")[0].reset();
-    },
-    error: (err) => alert("Помилка: " + err.responseJSON.error)
-  });
-});
-  </script>
+  <script src="./admin.js"></script>
 </body>
 </html>
