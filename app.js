@@ -5,66 +5,54 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const PORT = process.env.PORT || 3000;
+const app = express();
 
 dotenv.config();
 
+const PORT = process.env.PORT || 3000;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
+const WEBAPP_URL = process.env.WEBAPP_URL;
 const ADMIN_IDS = process.env.ADMIN_IDS.split(",").map(id => parseInt(id));
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-const app = express();
+const bot = new TelegramBot(TELEGRAM_TOKEN);
+const WEBHOOK_URL = `https://webapp-hayk.onrender.com/bot${TELEGRAM_TOKEN}`;
+bot.setWebHook(WEBHOOK_URL);
 
 app.use(express.static("public"));
 app.use(bodyParser.json());
 app.use(cors());
 
+app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
 
+// MongoDB
 mongoose.connect(MONGODB_URI, {
-  serverSelectionTimeoutMS: 30000, // 30 секунд для підключення
-  socketTimeoutMS: 45000, // 45 секунд для операцій
-  connectTimeoutMS: 30000, // 30 секунд для initial connection
-  maxPoolSize: 10, // Максимум 10 з'єднань в пулі
-  minPoolSize: 5, // Мінімум 5 з'єднань в пулі
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 30000,
+  maxPoolSize: 10,
+  minPoolSize: 5,
 })
-.then(() => console.log("✅ Підключено до MongoDB"))
-.catch(err => {
-  console.error("❌ Помилка підключення до MongoDB:", err);
-  process.exit(1); // Завершити процес при критичній помилці
-});
-
-// Також додай обробку помилок з'єднання:
-mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️ MongoDB disconnected');
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('✅ MongoDB reconnected');
-});
-
-bot.on('polling_error', (error) => {
-  console.error('❌ Polling error:', error);
-});
-bot.on('message', (msg) => {
-  console.log('📨 Отримано повідомлення:', {
-    chat_id: msg.chat.id,
-    from: msg.from?.username || 'Анонім',
-    text: msg.text,
-    web_app_data: !!msg.web_app_data
+  .then(() => console.log("✅ Підключено до MongoDB"))
+  .catch(err => {
+    console.error("❌ Помилка підключення до MongoDB:", err);
+    process.exit(1);
   });
-});
-// Додай graceful shutdown
+
+mongoose.connection.on('error', err => console.error('❌ MongoDB error:', err));
+mongoose.connection.on('disconnected', () => console.log('⚠️ MongoDB disconnected'));
+mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected'));
+
 process.on('SIGINT', async () => {
   await mongoose.connection.close();
   console.log('📋 MongoDB connection closed');
   process.exit(0);
 });
 
+// Схеми
 const menuSchema = new mongoose.Schema({
   id: Number,
   name: String,
@@ -86,7 +74,7 @@ const orderSchema = new mongoose.Schema({
 const Menu = mongoose.model("Menu", menuSchema);
 const Order = mongoose.model("Order", orderSchema);
 
-
+// Початкове меню
 async function initMenu() {
   if (await Menu.countDocuments() === 0) {
     const initialMenu = [
@@ -100,25 +88,38 @@ async function initMenu() {
 }
 initMenu();
 
-
+// Команди бота
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, "👋 Відкрий WebApp", {
     reply_markup: {
-      keyboard: [[{ text: "🛒 Замовити їжу", web_app: { url: process.env.WEBAPP_URL } }]],
+      keyboard: [[{ text: "🛒 Замовити їжу", web_app: { url: WEBAPP_URL } }]],
       resize_keyboard: true,
     },
   });
 });
 
+bot.onText(/\/admin/, (msg) => {
+  const chatId = msg.chat.id;
+  if (!ADMIN_IDS.includes(chatId)) {
+    return bot.sendMessage(chatId, "❌ Доступ заборонено");
+  }
+  bot.sendMessage(chatId, "👨‍💼 Панель адміна", {
+    reply_markup: {
+      inline_keyboard: [[{ text: "📋 Замовлення", web_app: { url: `${WEBAPP_URL}/admin?adminId=${chatId}` } }]],
+    },
+  });
+});
+
+// Обробка WebApp замовлень
 bot.on("message", async (msg) => {
   if (msg.web_app_data) {
     try {
       const data = JSON.parse(msg.web_app_data.data);
       console.log("Отримано дані з WebApp:", data);
-      
-      const chatId = data.chatId && data.chatId !== "unknown" ? data.chatId.toString() : msg.chat.id.toString();
-      const userName = data.userName && data.userName !== "unknown" ? data.userName : (msg.from.username || "Анонім");
-      
+
+      const chatId = data.chatId !== "unknown" ? data.chatId.toString() : msg.chat.id.toString();
+      const userName = data.userName !== "unknown" ? data.userName : (msg.from.username || "Анонім");
+
       const order = new Order({
         chatId,
         userName,
@@ -127,54 +128,33 @@ bot.on("message", async (msg) => {
         status: "Очікується",
         dateTime: new Date(data.dateTime),
       });
-      
+
       await order.save();
-      console.log("Замовлення збережено:", order._id);
-      
-      // Надсилання повідомлення клієнту
-      try {
-        await bot.sendMessage(chatId, `✅ Дякуємо за замовлення!\n📋 Номер замовлення: ${order._id}\n⏰ Статус: Очікується\n💰 Сума: ${data.total} грн`);
-        console.log(`Повідомлення надіслано клієнту: ${chatId}`);
-      } catch (err) {
-        console.error(`❌ Помилка надсилання клієнту (${chatId}):`, err.message);
-      }
-      
-      // Надсилання повідомлення адмінам
-      const orderDetails = data.items.map(item => `• ${item.name} x${item.quantity} - ${item.price * item.quantity} грн`).join("\n");
-      
+      console.log("💾 Замовлення збережено:", order._id);
+
+      await bot.sendMessage(chatId, `✅ Дякуємо за замовлення!\n📋 Номер замовлення: ${order._id}\n⏰ Статус: Очікується\n💰 Сума: ${data.total} грн`);
+
+      const orderDetails = data.items.map(item =>
+        `• ${item.name} x${item.quantity} – ${item.price * item.quantity} грн`).join("\n");
+
       for (const adminId of ADMIN_IDS) {
-        try {
-          await bot.sendMessage(adminId, 
-            `🔔 Нове замовлення!\n` +
-            `👤 Від: @${userName}\n` +
-            `🆔 Chat ID: ${chatId}\n` +
-            `📋 Замовлення:\n${orderDetails}\n` +
-            `💰 Загальна сума: ${data.total} грн\n` +
-            `⏰ Час: ${new Date().toLocaleString('uk-UA')}`
-          );
-          console.log(`Повідомлення надіслано адміну: ${adminId}`);
-        } catch (err) {
-          console.error(`❌ Помилка надсилання адміну (${adminId}):`, err.message);
-        }
+        await bot.sendMessage(adminId,
+          `🔔 Нове замовлення!\n` +
+          `👤 Від: @${userName}\n🆔 Chat ID: ${chatId}\n` +
+          `📋 Замовлення:\n${orderDetails}\n` +
+          `💰 Сума: ${data.total} грн\n⏰ ${new Date().toLocaleString("uk-UA")}`);
       }
-      
-    } catch (error) {
-      console.error("❌ Помилка обробки замовлення:", error);
+    } catch (err) {
+      console.error("❌ Помилка при обробці замовлення:", err);
     }
   }
 });
 
-
+// API
 app.get("/menu", async (req, res) => {
   const menu = await Menu.find();
   res.json(menu);
 });
-
-// app.post("/orders", async (req, res) => {
-//   const order = new Order(req.body);
-//   await order.save();
-//   res.json({ success: true, orderId: order._id });
-// });
 
 app.post("/menu", async (req, res) => {
   const { adminId, name, description, price, image, category } = req.body;
@@ -220,18 +200,7 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
-
-bot.onText(/\/admin/, (msg) => {
-  const chatId = msg.chat.id;
-  if (!ADMIN_IDS.includes(chatId)) {
-    return bot.sendMessage(chatId, "❌ Доступ заборонено");
-  }
-  bot.sendMessage(chatId, "👨‍💼 Панель адміна", {
-    reply_markup: {
-      inline_keyboard: [[{ text: "📋 Замовлення", web_app: { url: `${process.env.WEBAPP_URL}/admin?adminId=${chatId}` } }]],
-    },
-  });
+// Запуск
+app.listen(PORT, () => {
+  console.log(`🌐 Сервер запущено на порту ${PORT}`);
 });
-
-
-app.listen(PORT, () => console.log(`🌐 Сервер запущено на http://localhost:${PORT}`));
