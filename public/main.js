@@ -1,20 +1,5 @@
-
-let telegramApp = null;
-if (window.Telegram && window.Telegram.WebApp) {
-    telegramApp = window.Telegram.WebApp;
-    try {
-        telegramApp.expand();
-    } catch (error) {
-        console.error("Помилка розширення Telegram WebApp:", error);
-    }
-} else {
-    console.warn("Telegram WebApp не доступний. Виконується в звичайному браузері.");
-}
-
-
-axios.defaults.baseURL = process.env.NODE_ENV === 'production' 
-    ? 'https://webapp-hayk.onrender.com/' 
-    : 'http://localhost:3000';
+let telegramApp = window.Telegram.WebApp;
+telegramApp.expand();
 
 let menuItems = [];
 let cartItems = [];
@@ -23,7 +8,7 @@ function loadMenu() {
     let request = axios.get("/menu");
     request.then(function(response) {
         menuItems = response.data;
-        displayMenu("services");
+        displayMenu("all");
     });
     request.catch(function(error) {
         console.error("Помилка завантаження меню:", error);
@@ -35,10 +20,10 @@ function displayMenu(category) {
     menuContainer.empty();
     
     let menuGrid = $("<div>");
-    menuGrid.addClass("dropdown");
+    menuGrid.addClass("menu-grid");
     
     let itemsToShow = [];
-    if (category === "services") {
+    if (category === "all") {
         for (let i = 0; i < menuItems.length; i++) {
             itemsToShow.push(menuItems[i]);
         }
@@ -208,7 +193,7 @@ function updateTotal() {
     for (let i = 0; i < cartItems.length; i++) {
         totalSum = totalSum + (cartItems[i].price * cartItems[i].quantity);
     }
-    $("#cartTotal").text("Разам: " + totalSum + " грн");
+    $("#cartTotal").text("Разом: " + totalSum + " грн");
 }
 
 function checkout() {
@@ -235,9 +220,11 @@ function checkout() {
     
     console.log("Дані для відправки:", orderData);
     
+    // Відправляємо дані через Telegram WebApp API
     try {
         telegramApp.sendData(JSON.stringify(orderData));
         
+        // Показуємо успішне повідомлення
         $("#successModal").css("display", "block");
         cartItems = [];
         updateCartItems();
