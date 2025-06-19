@@ -47,6 +47,17 @@ mongoose.connection.on('reconnected', () => {
   console.log('✅ MongoDB reconnected');
 });
 
+bot.on('polling_error', (error) => {
+  console.error('❌ Polling error:', error);
+});
+bot.on('message', (msg) => {
+  console.log('📨 Отримано повідомлення:', {
+    chat_id: msg.chat.id,
+    from: msg.from?.username || 'Анонім',
+    text: msg.text,
+    web_app_data: !!msg.web_app_data
+  });
+});
 // Додай graceful shutdown
 process.on('SIGINT', async () => {
   await mongoose.connection.close();
@@ -101,44 +112,69 @@ bot.onText(/\/start/, (msg) => {
 
 bot.on("message", async (msg) => {
   if (msg.web_app_data) {
-    const data = JSON.parse(msg.web_app_data.data);
-    const chatId = data.chatId && data.chatId !== "unknown" ? data.chatId : msg.chat.id.toString();
-    const userName = data.userName && data.userName !== "unknown" ? data.userName : (msg.from.username || "Анонім");
-    const order = new Order({
-      chatId,
-      userName,
-      items: data.items,
-      total: data.total,
-      status: "Очікується",
-      dateTime: new Date(data.dateTime),
-    });
-    await order.save();
     try {
-      await bot.sendMessage(chatId, `Дякуємо за замовлення! Статус: Очікується.`);
-    } catch (err) {
-      console.error(`Помилка надсилання клієнту (${chatId}):`, err.message);
-    }
-    const orderDetails = data.items.map(item => `${item.name} x${item.quantity} - ${item.price * item.quantity} грн`).join("\n");
-    ADMIN_IDS.forEach(adminId => {
+      const data = JSON.parse(msg.web_app_data.data);
+      console.log("Отримано дані з WebApp:", data);
+      
+      const chatId = data.chatId && data.chatId !== "unknown" ? data.chatId.toString() : msg.chat.id.toString();
+      const userName = data.userName && data.userName !== "unknown" ? data.userName : (msg.from.username || "Анонім");
+      
+      const order = new Order({
+        chatId,
+        userName,
+        items: data.items,
+        total: data.total,
+        status: "Очікується",
+        dateTime: new Date(data.dateTime),
+      });
+      
+      await order.save();
+      console.log("Замовлення збережено:", order._id);
+      
+      // Надсилання повідомлення клієнту
       try {
-        bot.sendMessage(adminId, `Нове замовлення від @${userName} (ID: ${chatId}):\n${orderDetails}\nСума: ${data.total} грн`);
+        await bot.sendMessage(chatId, `✅ Дякуємо за замовлення!\n📋 Номер замовлення: ${order._id}\n⏰ Статус: Очікується\n💰 Сума: ${data.total} грн`);
+        console.log(`Повідомлення надіслано клієнту: ${chatId}`);
       } catch (err) {
-        console.error(`Помилка надсилання адміну (${adminId}):`, err.message);
+        console.error(`❌ Помилка надсилання клієнту (${chatId}):`, err.message);
       }
-    });
+      
+      // Надсилання повідомлення адмінам
+      const orderDetails = data.items.map(item => `• ${item.name} x${item.quantity} - ${item.price * item.quantity} грн`).join("\n");
+      
+      for (const adminId of ADMIN_IDS) {
+        try {
+          await bot.sendMessage(adminId, 
+            `🔔 Нове замовлення!\n` +
+            `👤 Від: @${userName}\n` +
+            `🆔 Chat ID: ${chatId}\n` +
+            `📋 Замовлення:\n${orderDetails}\n` +
+            `💰 Загальна сума: ${data.total} грн\n` +
+            `⏰ Час: ${new Date().toLocaleString('uk-UA')}`
+          );
+          console.log(`Повідомлення надіслано адміну: ${adminId}`);
+        } catch (err) {
+          console.error(`❌ Помилка надсилання адміну (${adminId}):`, err.message);
+        }
+      }
+      
+    } catch (error) {
+      console.error("❌ Помилка обробки замовлення:", error);
+    }
   }
 });
+
 
 app.get("/menu", async (req, res) => {
   const menu = await Menu.find();
   res.json(menu);
 });
 
-app.post("/orders", async (req, res) => {
-  const order = new Order(req.body);
-  await order.save();
-  res.json({ success: true, orderId: order._id });
-});
+// app.post("/orders", async (req, res) => {
+//   const order = new Order(req.body);
+//   await order.save();
+//   res.json({ success: true, orderId: order._id });
+// });
 
 app.post("/menu", async (req, res) => {
   const { adminId, name, description, price, image, category } = req.body;
