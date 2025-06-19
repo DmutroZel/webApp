@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FoodNow - Доставка їжі</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.js' integrity='sha512-+k1pnlgt4F1H8L7t3z95o3/KO+o78INEcXTbnoJQ/F2VqDVhWoaiVml/OEHv9HsVgxUaVW+IbiZPUJQfF/YxZw==' crossorigin='anonymous'></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script><script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -19,26 +19,43 @@
         <span class="cart-count" id="cartCount">0</span>
       </button>
     </div>
-    <div class="categories" id="categories"></div>
-    <div id="menuContainer"></div>
+
+    <div class="categories" id="categories">
+      <button class="category active" data-category="all">Всі</button>
+      <button class="category" data-category="pizza">Піца</button>
+      <button class="category" data-category="burger">Бургери</button>
+      <button class="category" data-category="sushi">Суші</button>
+      <button class="category" data-category="dessert">Десерти</button>
+      <button class="category" data-category="drink">Напої</button>
+    </div>
+
+    <div id="menuContainer">
+    
+    </div>
   </div>
+
+
   <div class="cart-overlay" id="cartOverlay">
     <div class="cart-container" id="cartContainer">
       <div class="cart-header">
         <h2>Ваше замовлення</h2>
         <button class="close-cart" id="closeCart">×</button>
       </div>
-      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-items" id="cartItems">
+     
+      </div>
       <div class="cart-total" id="cartTotal">Разом: 0 грн</div>
       <button class="checkout-btn" id="checkoutBtn">Оформити замовлення</button>
     </div>
   </div>
+
+
   <div class="success-modal" id="successModal">
     <div class="success-icon">✓</div>
     <h2>Дякуємо за замовлення!</h2>
     <p>Ваше замовлення успішно оформлено.</p>
     <p>Статус замовлення: <strong>Очікується</strong></p>
   </div>
-  <script src="./main.js"></script>
+<script src="./main.js"></script>
 </body>
 </html>
