@@ -1,4 +1,4 @@
-// Ініціалізація Telegram WebApp з перевіркою
+
 let telegramApp = null;
 if (window.Telegram && window.Telegram.WebApp) {
     telegramApp = window.Telegram.WebApp;
@@ -11,6 +11,11 @@ if (window.Telegram && window.Telegram.WebApp) {
     console.warn("Telegram WebApp не доступний. Виконується в звичайному браузері.");
 }
 
+
+axios.defaults.baseURL = process.env.NODE_ENV === 'production' 
+    ? 'https://webapp-hayk.onrender.com/' 
+    : 'http://localhost:3000';
+
 let menuItems = [];
 let cartItems = [];
 
@@ -18,7 +23,7 @@ function loadMenu() {
     let request = axios.get("/menu");
     request.then(function(response) {
         menuItems = response.data;
-        displayMenu("all");
+        displayMenu("services");
     });
     request.catch(function(error) {
         console.error("Помилка завантаження меню:", error);
@@ -30,10 +35,10 @@ function displayMenu(category) {
     menuContainer.empty();
     
     let menuGrid = $("<div>");
-    menuGrid.addClass("menu-grid");
+    menuGrid.addClass("dropdown");
     
     let itemsToShow = [];
-    if (category === "all") {
+    if (category === "services") {
         for (let i = 0; i < menuItems.length; i++) {
             itemsToShow.push(menuItems[i]);
         }
@@ -203,7 +208,7 @@ function updateTotal() {
     for (let i = 0; i < cartItems.length; i++) {
         totalSum = totalSum + (cartItems[i].price * cartItems[i].quantity);
     }
-    $("#cartTotal").text("Разом: " + totalSum + " грн");
+    $("#cartTotal").text("Разам: " + totalSum + " грн");
 }
 
 function checkout() {
@@ -230,11 +235,9 @@ function checkout() {
     
     console.log("Дані для відправки:", orderData);
     
-    // Відправляємо дані через Telegram WebApp API
     try {
         telegramApp.sendData(JSON.stringify(orderData));
         
-        // Показуємо успішне повідомлення
         $("#successModal").css("display", "block");
         cartItems = [];
         updateCartItems();
