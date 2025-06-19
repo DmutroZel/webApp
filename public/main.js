@@ -222,10 +222,11 @@ function checkout() {
     
     console.log("Дані для відправки:", orderData);
     
+    // Відправляємо дані через Telegram WebApp API
     try {
         telegramApp.sendData(JSON.stringify(orderData));
-        console.log("Дані відправлено через WebApp");
         
+        // Показуємо успішне повідомлення
         $("#successModal").css("display", "block");
         cartItems = [];
         updateCartItems();
