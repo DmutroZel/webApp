@@ -1,5 +1,15 @@
-let telegramApp = window.Telegram.WebApp;
-telegramApp.expand();
+// Ініціалізація Telegram WebApp з перевіркою
+let telegramApp = null;
+if (window.Telegram && window.Telegram.WebApp) {
+    telegramApp = window.Telegram.WebApp;
+    try {
+        telegramApp.expand();
+    } catch (error) {
+        console.error("Помилка розширення Telegram WebApp:", error);
+    }
+} else {
+    console.warn("Telegram WebApp не доступний. Виконується в звичайному браузері.");
+}
 
 let menuItems = [];
 let cartItems = [];
@@ -198,6 +208,7 @@ function updateTotal() {
 
 function checkout() {
     if (cartItems.length === 0) {
+        alert("Кошик порожній!");
         return;
     }
     
@@ -217,29 +228,28 @@ function checkout() {
         dateTime: new Date().toISOString()
     };
     
-    let request = axios.post("/orders", orderData, {
-        headers: { "Content-Type": "application/json" }
-    });
+    console.log("Дані для відправки:", orderData);
     
-    request.then(function(response) {
-        if (response.data.success) {
-            $("#successModal").css("display", "block");
-            cartItems = [];
-            updateCartItems();
-            updateCartCount();
-            
-            setTimeout(function() {
-                $("#successModal").css("display", "none");
-                $("#cartOverlay").css("display", "none");
-                $("#cartContainer").removeClass("active");
-                telegramApp.sendData(JSON.stringify(orderData));
-            }, 1000);
-        }
-    });
-    
-    request.catch(function(error) {
-        console.error("Помилка при оформленні замовлення:", error);
-    });
+    // Відправляємо дані через Telegram WebApp API
+    try {
+        telegramApp.sendData(JSON.stringify(orderData));
+        
+        // Показуємо успішне повідомлення
+        $("#successModal").css("display", "block");
+        cartItems = [];
+        updateCartItems();
+        updateCartCount();
+        
+        setTimeout(function() {
+            $("#successModal").css("display", "none");
+            $("#cartOverlay").css("display", "none");
+            $("#cartContainer").removeClass("active");
+        }, 2000);
+        
+    } catch (error) {
+        console.error("❌ Помилка відправки даних:", error);
+        alert("Помилка при оформленні замовлення. Спробуйте ще раз.");
+    }
 }
 
 $(document).ready(function() {
