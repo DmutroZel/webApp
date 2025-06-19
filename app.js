@@ -5,23 +5,23 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const PORT = process.env.PORT || 3000;
 
 dotenv.config();
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
 const ADMIN_IDS = process.env.ADMIN_IDS.split(",").map(id => parseInt(id));
-const WEBAPP_URL = process.env.WEBAPP_URL || `https://localhost:${PORT}`; // Використовуємо змінну середовища або локальний URL
+const WEBAPP_URL = process.env.WEBAPP_URL;
+const PORT = process.env.PORT || 3000;
 
-console.log("WebApp URL:", WEBAPP_URL); // Логуємо URL для дебагу
+console.log("WebApp URL:", WEBAPP_URL);
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+const bot = new TelegramBot(TELEGRAM_TOKEN);
 const app = express();
 
 app.use(express.static("public"));
 app.use(bodyParser.json());
-app.use(cors());
+app.use(cors({ origin: WEBAPP_URL }));
 
 mongoose.connect(MONGODB_URI, {
   serverSelectionTimeoutMS: 30000,
@@ -36,7 +36,6 @@ mongoose.connect(MONGODB_URI, {
   process.exit(1);
 });
 
-// Обробники подій MongoDB
 mongoose.connection.on('error', (err) => {
   console.error('❌ MongoDB connection error:', err);
 });
@@ -49,12 +48,17 @@ mongoose.connection.on('reconnected', () => {
   console.log('✅ MongoDB reconnected');
 });
 
-// Обробник помилок polling
-bot.on('polling_error', (error) => {
-  console.error('❌ Polling error:', error);
+bot.setWebHook(`${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`);
+
+app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
 
-// Логування вхідних повідомлень
+bot.on('webhook_error', (error) => {
+  console.error('❌ Webhook error:', error);
+});
+
 bot.on('message', (msg) => {
   console.log('📨 Отримано повідомлення:', {
     chat_id: msg.chat.id,
@@ -64,14 +68,12 @@ bot.on('message', (msg) => {
   });
 });
 
-// Graceful shutdown
 process.on('SIGINT', async () => {
   await mongoose.connection.close();
   console.log('📋 MongoDB connection closed');
   process.exit(0);
 });
 
-// Схеми MongoDB
 const menuSchema = new mongoose.Schema({
   id: Number,
   name: String,
@@ -93,7 +95,6 @@ const orderSchema = new mongoose.Schema({
 const Menu = mongoose.model("Menu", menuSchema);
 const Order = mongoose.model("Order", orderSchema);
 
-// Ініціалізація меню
 async function initMenu() {
   if (await Menu.countDocuments() === 0) {
     const initialMenu = [
@@ -107,20 +108,18 @@ async function initMenu() {
 }
 initMenu();
 
-// Команда /start
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, "👋 Відкрий WebApp", {
     reply_markup: {
       keyboard: [[{ 
         text: "🛒 Замовити їжу", 
-        web_app: { url: WEBAPP_URL } // Використовуємо змінну WEBAPP_URL
+        web_app: { url: WEBAPP_URL }
       }]],
       resize_keyboard: true,
     },
   });
 });
 
-// Обробник WebApp даних
 bot.on("message", async (msg) => {
   if (msg.web_app_data) {
     try {
@@ -142,31 +141,21 @@ bot.on("message", async (msg) => {
       await order.save();
       console.log("Замовлення збережено:", order._id);
       
-      // Повідомлення клієнту
-      try {
-        await bot.sendMessage(chatId, `✅ Дякуємо за замовлення!\n📋 Номер замовлення: ${order._id}\n⏰ Статус: Очікується\n💰 Сума: ${data.total} грн`);
-        console.log(`Повідомлення надіслано клієнту: ${chatId}`);
-      } catch (err) {
-        console.error(`❌ Помилка надсилання клієнту (${chatId}):`, err.message);
-      }
+      await bot.sendMessage(chatId, `✅ Дякуємо за замовлення!\n📋 Номер замовлення: ${order._id}\n⏰ Статус: Очікується\n💰 Сума: ${data.total} грн`);
+      console.log(`Повідомлення надіслано клієнту: ${chatId}`);
       
-      // Повідомлення адмінам
       const orderDetails = data.items.map(item => `• ${item.name} x${item.quantity} - ${item.price * item.quantity} грн`).join("\n");
       
       for (const adminId of ADMIN_IDS) {
-        try {
-          await bot.sendMessage(adminId, 
-            `🔔 Нове замовлення!\n` +
-            `👤 Від: @${userName}\n` +
-            `🆔 Chat ID: ${chatId}\n` +
-            `📋 Замовлення:\n${orderDetails}\n` +
-            `💰 Загальна сума: ${data.total} грн\n` +
-            `⏰ Час: ${new Date().toLocaleString('uk-UA')}`
-          );
-          console.log(`Повідомлення надіслано адміну: ${adminId}`);
-        } catch (err) {
-          console.error(`❌ Помилка надсилання адміну (${adminId}):`, err.message);
-        }
+        await bot.sendMessage(adminId, 
+          `🔔 Нове замовлення!\n` +
+          `👤 Від: @${userName}\n` +
+          `🆔 Chat ID: ${chatId}\n` +
+          `📋 Замовлення:\n${orderDetails}\n` +
+          `💰 Загальна сума: ${data.total} грн\n` +
+          `⏰ Час: ${new Date().toLocaleString('uk-UA')}`
+        );
+        console.log(`Повідомлення надіслано адміну: ${adminId}`);
       }
       
     } catch (error) {
@@ -175,7 +164,6 @@ bot.on("message", async (msg) => {
   }
 });
 
-// API маршрути
 app.get("/menu", async (req, res) => {
   const menu = await Menu.find();
   res.json(menu);
@@ -225,7 +213,6 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
-// Команда /admin
 bot.onText(/\/admin/, (msg) => {
   const chatId = msg.chat.id;
   if (!ADMIN_IDS.includes(chatId)) {
@@ -241,5 +228,12 @@ bot.onText(/\/admin/, (msg) => {
   });
 });
 
-// Запуск сервера
-app.listen(PORT, () => console.log(`🌐 Сервер запущено на ${WEBAPP_URL}`));
+app.listen(PORT, async () => {
+  console.log(`🌐 Сервер запущено на ${WEBAPP_URL}`);
+  try {
+    await bot.setWebHook(`${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`);
+    console.log("✅ Webhook встановлено");
+  } catch (err) {
+    console.error("❌ Помилка встановлення Webhook:", err);
+  }
+});
