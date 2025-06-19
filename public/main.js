@@ -4,8 +4,10 @@ telegramApp.expand();
 let menuItems = [];
 let cartItems = [];
 
+const API_BASE_URL = "https://webapp-hayk.onrender.com";
+
 function loadMenu() {
-    let request = axios.get("/menu");
+    let request = axios.get(`${API_BASE_URL}/menu`);
     request.then(function(response) {
         menuItems = response.data;
         displayMenu("all");
