@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodNow - Адмін-панель</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <link rel="stylesheet" href="./admin.css">
+</head>
+<body>
+  <div class="admin-container">
+    <header class="admin-header">
+      <h1>🍕 Адмін-панель FoodNow</h1>
+      <p>Керування меню та замовленнями</p>
+    </header>
+
+    <section class="dashboard-stats">
+      <div class="stat-card">
+        <span class="stat-icon">🍽️</span>
+        <div class="stat-number" id="totalDishes">-</div>
+        <div class="stat-label">Всього страв</div>
+      </div>
+    </section>
+
+    <section class="analytics-section">
+      <div class="chart-container">
+        <h2 class="section-title">📊 Продажі за категоріями</h2>
+        <canvas id="salesByCategoryChart"></canvas>
+      </div>
+      <div class="top-items-container">
+        <h2 class="section-title">🏆 Топ-5 товарів</h2>
+        <ul id="topSellingItemsList"></ul>
+      </div>
+    </section>
+
+    <main class="main-content">
+      <section class="form-section">
+        <h2 class="section-title">
+          <span id="formIcon">➕</span>
+          <span id="formTitle">Додати нову страву</span>
+        </h2>
+        <form id="menuItemForm">
+          <input type="hidden" id="itemId">
+          <div class="form-group">
+            <label for="itemName">Назва страви</label>
+            <input type="text" id="itemName" class="form-control" placeholder="Введіть назву страви" required>
+          </div>
+          <div class="form-group">
+            <label for="itemDescription">Опис</label>
+            <textarea id="itemDescription" class="form-control" placeholder="Детальний опис страви" required></textarea>
+          </div>
+          <div class="form-group">
+            <label for="itemPrice">Ціна (грн)</label>
+            <input type="number" id="itemPrice" class="form-control" placeholder="0" min="0" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label for="itemCategory">Категорія</label>
+            <select id="itemCategory" class="form-control" required>
+              <option value="" disabled selected>Оберіть категорію</option>
+              <option value="pizza">🍕 Піца</option>
+              <option value="burger">🍔 Бургери</option>
+              <option value="sushi">🍣 Суші</option>
+              <option value="dessert">🍰 Десерти</option>
+              <option value="drink">🥤 Напої</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="itemImage">Зображення</label>
+            <div class="file-input-wrapper">
+              <input type="file" id="itemImage" class="file-input" accept="image/*">
+              <label for="itemImage" class="file-input-label" id="fileLabel">📷 Оберіть зображення</label>
+            </div>
+          </div>
+          <div class="button-group">
+            <button type="submit" class="btn btn-primary btn-full" id="formSubmitBtn">
+              <span>➕</span> Додати страву
+            </button>
+            <button type="button" class="btn btn-secondary btn-full" id="cancelEditBtn" style="display: none;">
+              <span>❌</span> Скасувати
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="menu-section">
+        <h2 class="section-title">📋 Список страв</h2>
+        <div id="adminMenuList">
+          <div class="loading">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="./admin.js"></script>
+</body>
+</html>
