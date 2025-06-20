@@ -6,20 +6,27 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const PORT = process.env.PORT || 3000;
+const app = express();
 
 dotenv.config();
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
 const ADMIN_IDS = process.env.ADMIN_IDS.split(",").map(id => parseInt(id));
+const WEBAPP_URL = process.env.WEBAPP_URL;
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-const app = express();
+const bot = new TelegramBot(TELEGRAM_TOKEN);
+bot.setWebHook(`${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`);
+
 
 app.use(express.static("public"));
 app.use(bodyParser.json());
 app.use(cors());
 
+app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
 
 mongoose.connect(MONGODB_URI, {
   serverSelectionTimeoutMS: 30000, // 30 секунд для підключення
