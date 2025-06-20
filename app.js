@@ -4,16 +4,26 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const TelegramBot = require("node-telegram-bot-api");
+
+// NEW: Additional modules
 const http = require('http');
 const { Server } = require("socket.io");
-const multer = require('multer'); // NEW: For file uploads
-const fs = require('fs'); // NEW: For file system operations
+const multer = require('multer');
+const fs = require('fs');
 
 dotenv.config();
 
 const app = express();
-const server = http.createServer(app); // NEW: Create HTTP server for Socket.IO
-const io = new Server(server); // NEW: Initialize Socket.IO
+// NEW: Create HTTP server for Socket.IO
+const server = http.createServer(app); 
+// NEW: Initialize Socket.IO
+const io = new Server(server, {
+    cors: {
+      origin: "*", // Allow all origins for simplicity, restrict in production
+      methods: ["GET", "POST"]
+    }
+}); 
 
 const PORT = process.env.PORT || 3000;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -21,37 +31,49 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const ADMIN_IDS = process.env.ADMIN_IDS.split(",").map(id => parseInt(id));
 const WEBAPP_URL = process.env.WEBAPP_URL;
 
-const bot = new (require("node-telegram-bot-api"))(TELEGRAM_TOKEN);
+const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBAPP_URL}/bot${TELEGRAM_TOKEN}`);
 
 // --- Middleware ---
 app.use(cors());
+app.use(express.static(path.join(__dirname, "public"))); // Serve ALL static files from 'public'
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, "public"))); // Serve static files from 'public'
 
 // --- Multer Setup for Image Uploads ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = 'public/images/menu';
+    const dir = path.join(__dirname, 'public/images/menu');
     if (!fs.existsSync(dir)){
         fs.mkdirSync(dir, { recursive: true });
     }
     cb(null, dir);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
+    cb(null, Date.now() + path.extname(file.originalname));
   }
 });
 const upload = multer({ storage: storage });
 
-// --- MongoDB Connection ---
-mongoose.connect(MONGODB_URI)
+// --- MongoDB Connection & Schema (Unchanged from your code) ---
+mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+    connectTimeoutMS: 30000,
+    maxPoolSize: 10,
+    minPoolSize: 5,
+})
 .then(() => console.log("✅ Підключено до MongoDB"))
-.catch(err => console.error("❌ Помилка підключення до MongoDB:", err));
+.catch(err => {
+    console.error("❌ Помилка підключення до MongoDB:", err);
+    process.exit(1);
+});
 
-// --- Mongoose Schemas ---
+mongoose.connection.on('error', (err) => console.error('❌ MongoDB connection error:', err));
+mongoose.connection.on('disconnected', () => console.log('⚠️ MongoDB disconnected'));
+mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected'));
+
 const menuSchema = new mongoose.Schema({
-  id: { type: Number, unique: true },
+  id: { type: Number, unique: true, required: true },
   name: String,
   description: String,
   price: Number,
@@ -91,51 +113,72 @@ io.on('connection', (socket) => {
 
 // --- Telegram Bot Logic ---
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "👋 Вітаємо у FoodNow!", {
-    reply_markup: {
-      keyboard: [
-        [{ text: "🛒 Замовити їжу", web_app: { url: WEBAPP_URL } }],
-        [{ text: "📊 Мої замовлення", web_app: { url: `${WEBAPP_URL}/orders.html?userId=${msg.chat.id}` } }]
-      ],
-      resize_keyboard: true,
-    },
+    bot.sendMessage(msg.chat.id, "👋 Вітаємо у FoodNow! Оберіть дію:", {
+      reply_markup: {
+        keyboard: [
+          [{ text: "🛒 Замовити їжу", web_app: { url: WEBAPP_URL } }],
+          // NEW: Button to see own orders
+          [{ text: "📊 Мої замовлення", web_app: { url: `${WEBAPP_URL}/orders.html?userId=${msg.chat.id}` } }]
+        ],
+        resize_keyboard: true,
+      },
+    });
   });
-});
 
 bot.on("message", async (msg) => {
   if (msg.web_app_data) {
-    // ... (Ваша існуюча логіка обробки замовлення залишається тут)
-    // Я додам тільки відправку оновлення через сокети
     try {
         const data = JSON.parse(msg.web_app_data.data);
-        const order = new Order({
-          
-        })
-        await order.save();
+        console.log("Отримано дані з WebApp:", data);
         
-        // Повідомлення адмінам...
-        const adminSocketId = userSockets['admin_panel']; // Припускаючи, що адмінка теж може реєструватися
-        if(adminSocketId) {
-            io.to(adminSocketId).emit('new_order', order);
+        const chatId = data.chatId && data.chatId !== "unknown" ? data.chatId.toString() : msg.chat.id.toString();
+        const userName = data.userName && data.userName !== "unknown" ? data.userName : (msg.from.username || "Анонім");
+        
+        const order = new Order({
+          chatId,
+          userName,
+          items: data.items,
+          total: data.total,
+          status: "Очікується",
+          dateTime: new Date(data.dateTime),
+        });
+        
+        await order.save();
+        console.log("Замовлення збережено:", order._id);
+        
+        const orderIdShort = order._id.toString().slice(-6).toUpperCase();
+        await bot.sendMessage(chatId, `✅ Дякуємо! Ваше замовлення №${orderIdShort} прийнято.\nСтатус: Очікується\nСума: ${data.total} грн`);
+        
+        const orderDetails = data.items.map(item => `• ${item.name} x${item.quantity} - ${item.price * item.quantity} грн`).join("\n");
+        
+        for (const adminId of ADMIN_IDS) {
+            await bot.sendMessage(adminId, 
+                `🔔 *Нове замовлення №${orderIdShort}*\n\n` +
+                `*Від:* @${userName} (ID: \`${chatId}\`)\n` +
+                `*Склад:*\n${orderDetails}\n` +
+                `*Загальна сума:* ${data.total} грн\n` +
+                `*Час:* ${new Date().toLocaleString('uk-UA')}`,
+                { parse_mode: 'Markdown' }
+            );
         }
-
     } catch (error) {
         console.error("❌ Помилка обробки замовлення:", error);
     }
   }
 });
 
+// NEW: Handler for /admin command
 bot.onText(/\/admin/, (msg) => {
     const chatId = msg.chat.id;
     if (!ADMIN_IDS.includes(chatId)) {
-      return bot.sendMessage(chatId, "❌ Доступ заборонено");
+      return bot.sendMessage(chatId, "❌ Вибачте, у вас немає доступу до цієї команди.");
     }
-    bot.sendMessage(chatId, "👨‍💼 Відкриття панелі адміна...", {
+    bot.sendMessage(chatId, "👨‍💼 Панель адміністратора. Натисніть, щоб увійти:", {
       reply_markup: {
         inline_keyboard: [[{ text: "🚀 Увійти в адмін-панель", web_app: { url: `${WEBAPP_URL}/admin.html?adminId=${chatId}` } }]],
       },
     });
-  });
+});
 
 // --- API Routes ---
 app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
@@ -143,9 +186,9 @@ app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
   res.sendStatus(200);
 });
 
-// Menu Routes
+// --- MENU API (CRUD) ---
 app.get("/api/menu", async (req, res) => {
-  const menu = await Menu.find().sort({id: 1});
+  const menu = await Menu.find().sort({ id: 1 });
   res.json(menu);
 });
 
@@ -156,19 +199,24 @@ app.post("/api/menu", upload.single('image'), async (req, res) => {
     const lastItem = await Menu.findOne().sort({ id: -1 });
     const newId = lastItem ? lastItem.id + 1 : 1;
     
-    const imageUrl = req.file ? `/images/menu/${req.file.filename}` : "/images/placeholder.png";
+    const imageUrl = req.file ? `/images/menu/${req.file.filename}` : "/images/logoFoodNow.png"; // Default image
 
     const newItem = new Menu({ id: newId, name, description, price, category, image: imageUrl });
     await newItem.save();
-    res.json({ success: true, item: newItem });
+    res.status(201).json({ success: true, item: newItem });
 });
 
 app.put("/api/menu/:id", upload.single('image'), async (req, res) => {
     const { adminId, name, description, price, category } = req.body;
     if (!ADMIN_IDS.includes(parseInt(adminId))) return res.status(403).json({ error: "Доступ заборонено" });
 
-    const updateData = { name, description, price, category };
+    let updateData = { name, description, price, category };
     if (req.file) {
+        // Optionally delete old image
+        const oldItem = await Menu.findOne({id: req.params.id});
+        if (oldItem && oldItem.image && oldItem.image.startsWith('/images/menu/')) {
+            fs.unlink(path.join(__dirname, 'public', oldItem.image), err => { if(err) console.error("Error deleting old image:", err); });
+        }
         updateData.image = `/images/menu/${req.file.filename}`;
     }
 
@@ -178,35 +226,31 @@ app.put("/api/menu/:id", upload.single('image'), async (req, res) => {
 });
 
 app.delete("/api/menu/:id", async (req, res) => {
+    // Note: adminId should be sent in the request body for DELETE
     const { adminId } = req.body;
     if (!ADMIN_IDS.includes(parseInt(adminId))) return res.status(403).json({ error: "Доступ заборонено" });
 
     const deletedItem = await Menu.findOneAndDelete({id: req.params.id});
     if (!deletedItem) return res.status(404).json({error: "Товар не знайдено"});
-    // Optionally delete the image file from storage
-    if (deletedItem.image && deletedItem.image.includes('/images/menu/')) {
-        fs.unlink(path.join(__dirname, 'public', deletedItem.image), err => {
-            if(err) console.log("Помилка видалення файлу зображення:", err);
-        });
+    
+    if (deletedItem.image && deletedItem.image.startsWith('/images/menu/')) {
+        fs.unlink(path.join(__dirname, 'public', deletedItem.image), err => { if(err) console.error("Error deleting image file:", err); });
     }
-    res.json({ success: true });
+    res.json({ success: true, message: "Товар видалено" });
 });
 
-// Order Routes
+
+// --- ORDERS API ---
 app.get("/api/orders", async (req, res) => {
   const { adminId, userId } = req.query;
   let query = {};
-
   if (adminId && ADMIN_IDS.includes(parseInt(adminId))) {
-      // Admin gets all orders
-      query = {};
+      query = {}; // Admin gets all orders
   } else if (userId) {
-      // User gets only their orders
-      query = { chatId: userId };
+      query = { chatId: userId }; // User gets only their orders
   } else {
       return res.status(403).json({ error: "Доступ заборонено" });
   }
-
   const orders = await Order.find(query).sort({ dateTime: -1 });
   res.json(orders);
 });
@@ -221,10 +265,9 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
     order.status = status;
     await order.save();
     
-    // Notify user via Telegram Bot
-    bot.sendMessage(order.chatId, `🔔 Статус вашого замовлення №${order._id.toString().slice(-6)} оновлено: *${status}*`, {parse_mode: 'Markdown'});
+    const orderIdShort = order._id.toString().slice(-6).toUpperCase();
+    bot.sendMessage(order.chatId, `🔔 Статус вашого замовлення №*${orderIdShort}* оновлено: *${status}*`, {parse_mode: 'Markdown'});
     
-    // Notify user via WebSocket
     const userSocketId = userSockets[order.chatId];
     if (userSocketId) {
       io.to(userSocketId).emit('status_updated', { orderId: order._id, status: order.status });
@@ -233,14 +276,6 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
     res.json({ success: true, order });
 });
 
-// --- HTML file serving ---
-// The static middleware already handles this, but you can define explicit routes if needed
-app.get('/admin.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-app.get('/orders.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'orders.html'));
-});
 
 // Start server
 server.listen(PORT, () => console.log(`🚀 Сервер запущено на http://localhost:${PORT}`));

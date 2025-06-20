@@ -502,11 +502,10 @@ body {
 
 
 
-
-
-
-
-
+/* ==============================================
+NEW STYLES ADDED FOR NEW FEATURES
+==============================================
+*/
 
 .header-buttons {
   display: flex;
@@ -548,11 +547,9 @@ body {
 }
 
 .dish-card {
-  /* ... існуючі стилі ... */
-  cursor: pointer; /* Add cursor pointer to indicate it's clickable */
+  cursor: pointer; 
 }
 
-/* Dish Detail Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -640,9 +637,6 @@ body {
   background: var(--primary-hover);
 }
 
-
-/* ... (Ваші існуючі стилі для адмінки, якщо вони є) ... */
-/* Styles for New Admin Panel */
 .admin-container {
     padding: 20px;
     max-width: 800px;
@@ -681,11 +675,12 @@ body {
     border: none;
     border-radius: 8px;
     color: white;
+    background: none;
+    font-size: 18px;
 }
-.edit-btn { background-color: #f0ad4e; }
-.delete-btn { background-color: #d9534f; }
+.edit-btn { color: #f0ad4e; }
+.delete-btn { color: #d9534f; }
 
-/* Styles for Order Tracking Page */
 .order-list-container {
     padding: 20px;
 }
@@ -695,6 +690,7 @@ body {
     padding: 20px;
     margin-bottom: 20px;
     border: 1px solid var(--border-light);
+    transition: background-color 0.5s ease;
 }
 .order-tracking-card h3 {
     margin-top: 0;
@@ -704,18 +700,23 @@ body {
     margin: 5px 0;
     color: var(--text-secondary);
 }
+.order-tracking-card ul {
+    padding-left: 20px;
+}
 .status-tracker {
     display: flex;
     justify-content: space-between;
     margin-top: 20px;
     list-style-type: none;
     padding: 0;
+    position: relative;
 }
 .status-step {
     flex: 1;
     text-align: center;
     position: relative;
     color: var(--text-muted);
+    font-size: 12px;
 }
 .status-step.completed {
     color: var(--primary-color);
@@ -731,22 +732,32 @@ body {
     border-radius: 50%;
     margin: 0 auto 10px;
     background: var(--background-main);
+    z-index: 1;
+    position: relative;
 }
 .status-step.completed::before {
     background: var(--primary-color);
     color: white;
     border-color: var(--primary-color);
 }
-.status-step:not(:last-child)::after {
+.status-tracker::after {
     content: '';
     position: absolute;
     width: calc(100% - 40px);
     height: 2px;
     background: var(--text-muted);
     top: 15px;
-    left: calc(50% + 20px);
-    z-index: -1;
+    left: 20px;
+    z-index: 0;
 }
-.status-step.completed:not(:last-child)::after {
+.status-progress-bar {
+    position: absolute;
+    height: 2px;
     background: var(--primary-color);
+    top: 15px;
+    left: 20px;
+    z-index: 0;
+    width: 0;
+    transition: width 0.5s ease;
 }
+
