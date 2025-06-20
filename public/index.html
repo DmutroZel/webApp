@@ -14,7 +14,6 @@
     <div class="header">
       <div class="logo"></div>
       <div class="header-buttons">
-          <button class="my-orders-btn" id="myOrdersBtn">Мої замовлення</button>
           <button class="cart-button" id="openCart">
             🛒
             <span class="cart-count" id="cartCount">0</span>
@@ -57,21 +56,33 @@
     <p>Ваше замовлення успішно оформлено.</p>
     <p>Статус замовлення: <strong>Очікується</strong></p>
   </div>
-  
-  <div class="modal-overlay" id="dishModalOverlay">
-    <div class="modal-container" id="dishModalContainer">
-        <button class="close-modal" id="closeDishModal">×</button>
-        <img src="" alt="Dish Image" class="modal-dish-image" id="modalDishImage">
-        <div class="modal-dish-info">
-            <h2 class="modal-dish-name" id="modalDishName"></h2>
-            <p class="modal-dish-description" id="modalDishDescription"></p>
-            <div class="modal-dish-price-add">
-                <span class="modal-dish-price" id="modalDishPrice"></span>
-                <button class="add-to-cart-modal" id="modalAddToCartBtn">Додати в кошик</button>
-            </div>
-        </div>
+  <div class="modal-overlay" id="ratingModalOverlay" style="display:none;">
+    <div class="modal-container" id="ratingModalContainer">
+        <button class="close-modal" id="closeRatingModal">×</button>
+        <h2>Оцініть ваше замовлення</h2>
+        <p>Ваш відгук допоможе нам стати кращими!</p>
+        <div id="ratingItemsList"></div>
+        <button class="checkout-btn" id="submitRatingsBtn">Відправити оцінки</button>
     </div>
+</div>
+ <div class="modal-overlay" id="dishModalOverlay">
+  <div class="modal-container" id="dishModalContainer">
+      <button class="close-modal" id="closeDishModal">×</button>
+      <img src="" alt="Dish Image" class="modal-dish-image" id="modalDishImage">
+      <div class="modal-dish-info">
+          <h2 class="modal-dish-name" id="modalDishName"></h2>
+          <p class="modal-dish-description" id="modalDishDescription"></p>
+          <div class="modal-dish-price-add">
+              <span class="modal-dish-price" id="modalDishPrice"></span>
+              <button class="add-to-cart-modal" id="modalAddToCartBtn">Додати в кошик</button>
+          </div>
+          <div class="recommendations-section">
+              <h3>Вам також може сподобатися:</h3>
+              <div class="recommendations-list" id="recommendationsList"></div>
+          </div>
+      </div>
   </div>
+</div>
 
   <script src="./main.js"></script>
 </body>

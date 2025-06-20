@@ -500,13 +500,6 @@ body {
 
 
 
-
-
-/* ==============================================
-NEW STYLES ADDED FOR NEW FEATURES
-==============================================
-*/
-
 .header-buttons {
   display: flex;
   align-items: center;
@@ -637,127 +630,93 @@ NEW STYLES ADDED FOR NEW FEATURES
   background: var(--primary-hover);
 }
 
-.admin-container {
-    padding: 20px;
-    max-width: 800px;
-    margin: 0 auto;
-}
-.admin-container h1, .admin-container h2 {
-    color: var(--accent-color);
-    border-bottom: 2px solid var(--border-light);
-    padding-bottom: 10px;
-}
-.admin-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 10px;
-    margin-bottom: 10px;
-    background: var(--background-card);
-    border-radius: 10px;
-    border: 1px solid var(--border-light);
-}
-.admin-menu-item img {
-    width: 60px;
-    height: 60px;
-    border-radius: 8px;
-    object-fit: cover;
-}
-.admin-menu-info {
-    flex-grow: 1;
-}
-.admin-menu-info h4 { margin: 0 0 5px; }
-.admin-menu-info p { margin: 0; font-size: 14px; color: var(--text-secondary); }
-.admin-menu-actions button {
-    margin-left: 5px;
-    padding: 8px 12px;
-    cursor: pointer;
-    border: none;
-    border-radius: 8px;
-    color: white;
-    background: none;
-    font-size: 18px;
-}
-.edit-btn { color: #f0ad4e; }
-.delete-btn { color: #d9534f; }
 
-.order-list-container {
-    padding: 20px;
+
+.star-rating {
+  font-size: 14px;
+  color: #f39c12;
+  margin-bottom: 8px;
 }
-.order-tracking-card {
-    background: var(--background-card);
-    border-radius: 15px;
-    padding: 20px;
-    margin-bottom: 20px;
-    border: 1px solid var(--border-light);
-    transition: background-color 0.5s ease;
+.star-rating.no-rating {
+  color: var(--text-muted);
+  font-size: 12px;
 }
-.order-tracking-card h3 {
-    margin-top: 0;
-    color: var(--text-primary);
-}
-.order-tracking-card p {
-    margin: 5px 0;
-    color: var(--text-secondary);
-}
-.order-tracking-card ul {
-    padding-left: 20px;
-}
-.status-tracker {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 20px;
-    list-style-type: none;
-    padding: 0;
-    position: relative;
-}
-.status-step {
-    flex: 1;
-    text-align: center;
-    position: relative;
-    color: var(--text-muted);
-    font-size: 12px;
-}
-.status-step.completed {
-    color: var(--primary-color);
-    font-weight: bold;
-}
-.status-step::before {
-    content: '✓';
-    display: block;
-    width: 30px;
-    height: 30px;
-    line-height: 30px;
-    border: 2px solid var(--text-muted);
-    border-radius: 50%;
-    margin: 0 auto 10px;
-    background: var(--background-main);
-    z-index: 1;
-    position: relative;
-}
-.status-step.completed::before {
-    background: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-}
-.status-tracker::after {
-    content: '';
-    position: absolute;
-    width: calc(100% - 40px);
-    height: 2px;
-    background: var(--text-muted);
-    top: 15px;
-    left: 20px;
-    z-index: 0;
-}
-.status-progress-bar {
-    position: absolute;
-    height: 2px;
-    background: var(--primary-color);
-    top: 15px;
-    left: 20px;
-    z-index: 0;
-    width: 0;
-    transition: width 0.5s ease;
+.dish-name + .star-rating {
+  margin-top: -4px;
 }
 
+/* Стилі для модального вікна оцінки */
+#ratingItemsList {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.rating-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: var(--light-orange);
+  border-radius: 10px;
+}
+.rating-item-name {
+    font-weight: 500;
+}
+.rating-stars-input {
+  display: flex;
+  flex-direction: row-reverse; /* Щоб зірки заповнювалися справа наліво при наведенні */
+}
+.rating-stars-input input[type="radio"] {
+  display: none;
+}
+.rating-stars-input label {
+  color: #ccc;
+  cursor: pointer;
+  font-size: 24px;
+  transition: color 0.2s;
+}
+.rating-stars-input input[type="radio"]:checked ~ label,
+.rating-stars-input label:hover,
+.rating-stars-input label:hover ~ label {
+  color: #f39c12;
+}
+
+.recommendations-section {
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
+}
+.recommendations-section h3 {
+  font-size: 16px;
+  margin-bottom: 15px;
+  color: var(--text-primary);
+}
+.recommendations-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.rec-card {
+  text-align: center;
+  cursor: pointer;
+  background: var(--light-orange);
+  padding: 8px;
+  border-radius: 10px;
+  transition: transform 0.2s;
+}
+.rec-card:hover {
+    transform: translateY(-3px);
+}
+.rec-card img {
+  width: 100%;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+.rec-card span {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
