@@ -157,14 +157,8 @@ bot.on("message", async (msg) => {
 
   try {
     const data = JSON.parse(msg.web_app_data.data);
-    const chatId =
-      data.chatId && data.chatId !== "unknown"
-        ? data.chatId.toString()
-        : msg.chat.id.toString();
-    const userName =
-      data.userName && data.userName !== "unknown"
-        ? data.userName
-        : msg.from.username || "Анонім";
+    const chatId = data.chatId && data.chatId !== "unknown" ? data.chatId.toString() : msg.chat.id.toString();
+    const userName = data.userName && data.userName !== "unknown" ? data.userName : msg.from.username || "Анонім";
 
     const order = new Order({
       chatId,
@@ -198,10 +192,67 @@ bot.on("message", async (msg) => {
         { parse_mode: "Markdown" }
       );
     }
+
+    // Нова логіка: відправка запиту на оцінку через 10 секунд
+    setTimeout(async () => {
+      for (const item of data.items) {
+        const ratingKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "1 ⭐", callback_data: `rate_${order._id}_${item.id}_1` },
+              { text: "2 ⭐", callback_data: `rate_${order._id}_${item.id}_2` },
+              { text: "3 ⭐", callback_data: `rate_${order._id}_${item.id}_3` },
+              { text: "4 ⭐", callback_data: `rate_${order._id}_${item.id}_4` },
+              { text: "5 ⭐", callback_data: `rate_${order._id}_${item.id}_5` },
+            ],
+          ],
+        };
+
+        await bot.sendMessage(
+          chatId,
+          `Будь ласка, оцініть "${item.name}" з вашого замовлення №${orderIdShort}:`,
+          { reply_markup: ratingKeyboard }
+        );
+      }
+    }, 10000); // 10 секунд затримки
   } catch (error) {
     console.error("❌ Помилка обробки замовлення:", error);
   }
 });
+
+
+bot.on("callback_query", async (query) => {
+  const [action, orderId, itemId, rating] = query.data.split("_");
+  if (action === "rate") {
+    try {
+      const item = await Menu.findOne({ id: parseInt(itemId) });
+      if (!item) {
+        await bot.answerCallbackQuery(query.id, { text: "Товар не знайдено" });
+        return;
+      }
+
+      item.ratings.push(parseInt(rating));
+      item.averageRating = Number(
+        (item.ratings.reduce((acc, r) => acc + r, 0) / item.ratings.length).toFixed(1)
+      );
+      await item.save();
+
+      await bot.answerCallbackQuery(query.id, { text: `Дякуємо за оцінку ${rating} ⭐!` });
+      await bot.deleteMessage(query.message.chat.id, query.message.message_id); // Видаляємо повідомлення після оцінки
+    } catch (error) {
+      console.error("❌ Помилка обробки оцінки:", error);
+      await bot.answerCallbackQuery(query.id, { text: "Помилка при збереженні оцінки" });
+    }
+  }
+});
+
+
+
+
+
+
+
+
 
 // API маршрути
 app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
@@ -334,7 +385,6 @@ app.post("/api/menu/:id/rate", async (req, res) => {
     res.status(500).json({ error: "Помилка сервера" });
   }
 });
-
 // Orders API
 app.get("/api/orders", async (req, res) => {
   try {
