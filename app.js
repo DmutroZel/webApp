@@ -10,8 +10,12 @@ const { Server } = require("socket.io");
 const multer = require("multer");
 const fs = require("fs");
 const { v4: uuidv4 } = require('uuid');
-
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 dotenv.config();
+
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash"});
 
 // Ініціалізація додатку та сервера
 const app = express();
@@ -374,7 +378,61 @@ app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { message, history } = req.body;
 
+    // 1. Отримуємо актуальне меню з бази даних
+    const menuItems = await Menu.find({}, 'name description category price');
+    const menuContext = menuItems.map(item =>
+      `- ${item.name} (Категорія: ${item.category}, Ціна: ${item.price} грн): ${item.description}`
+    ).join("\n");
+
+    // 2. Створюємо системний промпт (мозок нашого асистента)
+    const systemPrompt = `
+      Ви — доброзичливий AI-помічник у сервісі доставки їжі "FoodNow".
+      Ваше завдання — допомагати користувачам обирати страви з нашого меню.
+      Завжди відповідайте українською мовою. Будьте коротким, ввічливим і корисним.
+
+      Ось АКТУАЛЬНЕ МЕНЮ, на яке ви повинні спиратися:
+      --- МЕНЮ ---
+      ${menuContext}
+      --- КІНЕЦЬ МЕНЮ ---
+
+      Правила спілкування:
+      - Ніколи не вигадуйте страви, яких немає в меню.
+      - Якщо користувач просить щось, чого немає (наприклад, "хочу рибу"), запропонуйте найкращу альтернативу з меню (наприклад, "У нас немає риби, але можу запропонувати смачні суші з лососем").
+      - Якщо користувач не знає, що обрати, ставте уточнюючі питання (наприклад, "Чому б ви надали перевагу: чомусь м'ясному, як бургер, чи легшому, як суші?").
+      - На пряме питання "що порадиш?" можна запропонувати 2-3 популярні страви з різних категорій.
+      - Не використовуйте Markdown у відповідях.
+    `;
+    
+    // 3. Формуємо історію чату для контексту
+    const chatHistory = history.map(h => ({
+        role: h.role,
+        parts: [{ text: h.parts[0].text }]
+    }));
+
+    // 4. Створюємо чат з Gemini
+    const chat = model.startChat({
+      history: [
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'model', parts: [{ text: 'Звісно, я готовий допомогти вам з вибором!' }] },
+          ...chatHistory
+      ]
+    });
+
+    const result = await chat.sendMessage(message);
+    const response = result.response;
+    const text = response.text();
+
+    res.json({ reply: text });
+
+  } catch (error) {
+    console.error("❌ Помилка AI чату:", error);
+    res.status(500).json({ error: "Вибачте, мій AI-помічник зараз не в гуморі. Спробуйте пізніше." });
+  }
+});
 // Menu API
 app.get("/api/menu", async (req, res) => {
   try {
