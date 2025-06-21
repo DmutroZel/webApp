@@ -43,7 +43,7 @@ function displayMenu(category) {
           <img src="${item.image}" alt="${item.name}" class="dish-image">
           <div class="dish-info">
             <h3 class="dish-name">${item.name}</h3>
-          
+            ${getStarRatingHTML(item.averageRating)} <!-- Тут відображається рейтинг -->
             <p class="dish-description">${item.description}</p>
             <div class="dish-price-add">
               <span class="dish-price">${item.price} грн</span>
@@ -227,18 +227,17 @@ function showDishModal(itemId) {
 }
 
 // Генерація HTML для рейтингу зірок
-// function getStarRatingHTML(rating) {
-//   if (!rating || rating === 0) {
-//     return '<div class="star-rating no-rating">Ще немає оцінок</div>';
-//   }
+function getStarRatingHTML(rating) {
+  if (!rating || rating === 0) {
+    return '<div class="star-rating no-rating">Ще немає оцінок</div>';
+  }
 
-//   let starsHTML = "";
-//   for (let i = 1; i <= 5; i++) {
-//     starsHTML += i <= rating ? "⭐" : i - 0.5 <= rating ? "🌟" : "☆";
-//   }
-//   return `<div class="star-rating">${starsHTML} (${rating})</div>`;
-// }
-
+  let starsHTML = "";
+  for (let i = 1; i <= 5; i++) {
+    starsHTML += i <= rating ? "⭐" : i - 0.5 <= rating ? "🌟" : "☆";
+  }
+  return `<div class="star-rating">${starsHTML} (${rating})</div>`;
+}
 // Модальне вікно для оцінки
 // function showRatingModal(orderedItems) {
 //   let $ratingModal = $("#ratingModal");
