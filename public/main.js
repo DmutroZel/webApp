@@ -406,4 +406,71 @@ $(document).ready(() => {
       );
     });
   });
+  const chatFab = $('#chatFab');
+  const chatWindow = $('#chatWindow');
+  const closeChatBtn = $('#closeChatBtn');
+  const chatBody = $('#chatBody');
+  const chatInput = $('#chatInput');
+  const sendChatBtn = $('#sendChatBtn');
+
+  let chatHistory = []; // Історія для надсилання на бекенд
+
+  const toggleChat = () => {
+    chatWindow.toggleClass('open');
+  };
+
+  const addMessageToUI = (message, sender) => {
+    const messageEl = $('<div></div>').addClass('chat-message').addClass(sender).text(message);
+    chatBody.append(messageEl);
+    chatBody.scrollTop(chatBody.prop("scrollHeight"));
+  };
+
+  const showTypingIndicator = (show) => {
+      $('.chat-message.typing').remove();
+      if (show) {
+          const typingEl = $('<div></div>').addClass('chat-message').addClass('bot').addClass('typing').text('Асистент друкує...');
+          chatBody.append(typingEl);
+          chatBody.scrollTop(chatBody.prop("scrollHeight"));
+      }
+  }
+
+  const handleSendMessage = async () => {
+    const message = chatInput.val().trim();
+    if (!message) return;
+
+    // Додаємо повідомлення користувача в UI та історію
+    addMessageToUI(message, 'user');
+    chatHistory.push({ role: 'user', parts: [{ text: message }] });
+    chatInput.val('');
+    showTypingIndicator(true);
+
+    try {
+      // Відправляємо запит на наш бекенд
+      const response = await axios.post(`${state.API_BASE_URL}/api/chat`, {
+        message: message,
+        history: chatHistory.slice(0, -1) // Відправляємо історію без поточного повідомлення
+      });
+      
+      const reply = response.data.reply;
+
+      // Додаємо відповідь бота в UI та історію
+      showTypingIndicator(false);
+      addMessageToUI(reply, 'bot');
+      chatHistory.push({ role: 'model', parts: [{ text: reply }] });
+
+    } catch (error) {
+      console.error('Помилка чату:', error);
+      showTypingIndicator(false);
+      addMessageToUI(error.response?.data?.error || 'Щось пішло не так. Спробуйте пізніше.', 'bot');
+    }
+  };
+
+  chatFab.on('click', toggleChat);
+  closeChatBtn.on('click', toggleChat);
+  sendChatBtn.on('click', handleSendMessage);
+  chatInput.on('keypress', (e) => {
+    if (e.key === 'Enter') {
+      handleSendMessage();
+    }
+  });
 });
