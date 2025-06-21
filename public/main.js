@@ -43,7 +43,7 @@ function displayMenu(category) {
           <img src="${item.image}" alt="${item.name}" class="dish-image">
           <div class="dish-info">
             <h3 class="dish-name">${item.name}</h3>
-            ${getStarRatingHTML(item.averageRating)}
+          
             <p class="dish-description">${item.description}</p>
             <div class="dish-price-add">
               <span class="dish-price">${item.price} грн</span>
@@ -169,12 +169,13 @@ function checkout() {
 
   try {
     telegramApp.sendData(JSON.stringify(orderData));
-    showRatingModal(orderData.items);
     state.cartItems = [];
     updateCartItems();
     updateCartCount();
     $("#cartOverlay").hide();
     $("#cartContainer").removeClass("active");
+    $("#successModal").css("display", "flex"); // Показуємо модалку успіху
+    setTimeout(() => $("#successModal").css("display", "none"), 3000); // Ховаємо через 3 секунди
   } catch (error) {
     console.error("❌ Помилка відправки даних:", error);
     alert("Помилка при оформленні замовлення. Спробуйте ще раз.");
@@ -226,56 +227,56 @@ function showDishModal(itemId) {
 }
 
 // Генерація HTML для рейтингу зірок
-function getStarRatingHTML(rating) {
-  if (!rating || rating === 0) {
-    return '<div class="star-rating no-rating">Ще немає оцінок</div>';
-  }
+// function getStarRatingHTML(rating) {
+//   if (!rating || rating === 0) {
+//     return '<div class="star-rating no-rating">Ще немає оцінок</div>';
+//   }
 
-  let starsHTML = "";
-  for (let i = 1; i <= 5; i++) {
-    starsHTML += i <= rating ? "⭐" : i - 0.5 <= rating ? "🌟" : "☆";
-  }
-  return `<div class="star-rating">${starsHTML} (${rating})</div>`;
-}
+//   let starsHTML = "";
+//   for (let i = 1; i <= 5; i++) {
+//     starsHTML += i <= rating ? "⭐" : i - 0.5 <= rating ? "🌟" : "☆";
+//   }
+//   return `<div class="star-rating">${starsHTML} (${rating})</div>`;
+// }
 
 // Модальне вікно для оцінки
-function showRatingModal(orderedItems) {
-  let $ratingModal = $("#ratingModal");
-  if (!$ratingModal.length) {
-    $("body").append(`
-      <div class="modal-overlay" id="ratingModalOverlay" style="display:none;">
-        <div class="modal-container" id="ratingModalContainer">
-          <button class="close-modal" id="closeRatingModal">×</button>
-          <h2>Оцініть ваше замовлення</h2>
-          <p>Ваш відгук допоможе нам стати кращими!</p>
-          <div id="ratingItemsList"></div>
-          <button class="checkout-btn" id="submitRatingsBtn">Відправити оцінки</button>
-        </div>
-      </div>
-    `);
-  }
+// function showRatingModal(orderedItems) {
+//   let $ratingModal = $("#ratingModal");
+//   if (!$ratingModal.length) {
+//     $("body").append(`
+//       <div class="modal-overlay" id="ratingModalOverlay" style="display:none;">
+//         <div class="modal-container" id="ratingModalContainer">
+//           <button class="close-modal" id="closeRatingModal">×</button>
+//           <h2>Оцініть ваше замовлення</h2>
+//           <p>Ваш відгук допоможе нам стати кращими!</p>
+//           <div id="ratingItemsList"></div>
+//           <button class="checkout-btn" id="submitRatingsBtn">Відправити оцінки</button>
+//         </div>
+//       </div>
+//     `);
+//   }
 
-  const $ratingItemsList = $("#ratingItemsList").empty();
-  orderedItems.forEach(({ id, name }) => {
-    $ratingItemsList.append(`
-      <div class="rating-item" data-id="${id}">
-        <span class="rating-item-name">${name}</span>
-        <div class="rating-stars-input">
-          ${[5, 4, 3, 2, 1]
-            .map(
-              (star) => `
-            <input type="radio" id="star-${id}-${star}" name="rating-${id}" value="${star}" />
-            <label for="star-${id}-${star}">★</label>
-          `
-            )
-            .join("")}
-        </div>
-      </div>
-    `);
-  });
+//   const $ratingItemsList = $("#ratingItemsList").empty();
+//   orderedItems.forEach(({ id, name }) => {
+//     $ratingItemsList.append(`
+//       <div class="rating-item" data-id="${id}">
+//         <span class="rating-item-name">${name}</span>
+//         <div class="rating-stars-input">
+//           ${[5, 4, 3, 2, 1]
+//             .map(
+//               (star) => `
+//             <input type="radio" id="star-${id}-${star}" name="rating-${id}" value="${star}" />
+//             <label for="star-${id}-${star}">★</label>
+//           `
+//             )
+//             .join("")}
+//         </div>
+//       </div>
+//     `);
+//   });
 
-  $("#ratingModalOverlay").css("display", "flex");
-}
+//   $("#ratingModalOverlay").css("display", "flex");
+// }
 
 // Ініціалізація подій
 $(document).ready(() => {
@@ -355,31 +356,31 @@ $(document).ready(() => {
   });
 
   // Закриття модального вікна оцінки
-  $("body").on("click", "#closeRatingModal, #ratingModalOverlay", function (e) {
-    if (e.target === this) $("#ratingModalOverlay").hide();
-  });
+//   $("body").on("click", "#closeRatingModal, #ratingModalOverlay", function (e) {
+//     if (e.target === this) $("#ratingModalOverlay").hide();
+//   });
 
   // Відправка оцінок
-  $("body").on("click", "#submitRatingsBtn", () => {
-    $(".rating-item").each(function () {
-      const itemId = $(this).data("id");
-      const rating = $(this).find('input[type="radio"]:checked').val();
-      if (rating) {
-        axios
-          .post(`${state.API_BASE_URL}/api/menu/${itemId}/rate`, {
-            rating: parseInt(rating),
-          })
-          .catch((err) =>
-            console.error(`Помилка відправки рейтингу для ${itemId}:`, err)
-          );
-      }
-    });
-    $("#ratingModalOverlay").hide();
-  });
+//   $("body").on("click", "#submitRatingsBtn", () => {
+//     $(".rating-item").each(function () {
+//       const itemId = $(this).data("id");
+//       const rating = $(this).find('input[type="radio"]:checked').val();
+//       if (rating) {
+//         axios
+//           .post(`${state.API_BASE_URL}/api/menu/${itemId}/rate`, {
+//             rating: parseInt(rating),
+//           })
+//           .catch((err) =>
+//             console.error(`Помилка відправки рейтингу для ${itemId}:`, err)
+//           );
+//       }
+    // });
+//     $("#ratingModalOverlay").hide();
+//   });
 
   // Навігація до рекомендацій
-  $("body").on("click", ".rec-card", function () {
-    $("#dishModalOverlay").hide();
-    showDishModal($(this).data("id"));
-  });
+  // $("body").on("click", ".rec-card", function () {
+  //   $("#dishModalOverlay").hide();
+  //   showDishModal($(this).data("id"));
+  // });
 });
