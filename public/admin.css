@@ -134,10 +134,18 @@ body {
   font-weight: bold;
 }
 
+/* Зміни для розміщення нового блоку замовлень */
 .main-content {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr; /* Один стовпець, оскільки замовлення тепер над ним */
   gap: 1.875rem;
+}
+
+/* Нова сітка для управління меню */
+.menu-management-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.875rem;
 }
 
 .form-section,
@@ -158,6 +166,96 @@ body {
   align-items: center;
   gap: 0.625rem;
 }
+
+/* Нові стилі для секції замовлень */
+.orders-section {
+  background: var(--background-card);
+  border-radius: 1.25rem;
+  padding: 1.875rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.875rem;
+}
+
+.admin-order-item {
+  background: var(--background-main);
+  border: 2px solid var(--border-light);
+  border-radius: 0.9375rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.admin-order-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow);
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.order-header h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+.order-header span {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.order-details ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin-bottom: 1rem;
+}
+
+.order-details li {
+  font-size: 0.9rem;
+  padding: 0.25rem 0;
+}
+
+.order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.order-total {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+.btn-accept {
+  background-color: var(--success-color);
+  color: #fff;
+}
+
+.btn-accept:hover {
+  background-color: #229954;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3);
+}
+
+.no-items {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+
+/* Існуючі стилі форми та меню */
 
 .form-group {
   margin-bottom: 1.25rem;
@@ -402,6 +500,10 @@ textarea.form-control {
 }
 
 @media (max-width: 768px) {
+  .menu-management-grid {
+    grid-template-columns: 1fr;
+  }
+  
   .main-content,
   .dashboard-stats,
   .analytics-section {

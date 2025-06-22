@@ -5,6 +5,7 @@ let salesChart = null;
 
 const state = {
   menuItems: [],
+  orders: [], // Стан для замовлень
 };
 
 // Оновлення статистики на дашборді
@@ -23,10 +24,12 @@ function loadAnalytics() {
   axios
     .get(`${API_BASE_URL}/api/analytics/summary`, { params: { adminId } })
     .then(({ data: { salesByCategory, topSellingItems } }) => {
-      // Оновлення графіка
       const ctx = document.getElementById("salesByCategoryChart").getContext("2d");
       if (salesChart) salesChart.destroy();
-      salesChart = {
+      // Примітка: Chart.js не завантажений у вашому HTML, тому цей код може викликати помилку.
+      // Щоб він запрацював, потрібно додати Chart.js до <head>
+      /*
+      salesChart = new Chart(ctx, {
         type: "doughnut",
         data: {
           labels: salesByCategory.map((item) => item._id),
@@ -45,9 +48,9 @@ function loadAnalytics() {
             title: { display: false },
           },
         },
-      };
+      });
+      */
 
-      // Оновлення списку топ-товарів
       const $topItemsList = $("#topSellingItemsList").empty();
       topSellingItems.length
         ? topSellingItems.forEach(({ _id, totalQuantity }) =>
@@ -57,6 +60,54 @@ function loadAnalytics() {
     })
     .catch((error) => console.error("Помилка завантаження аналітики:", error));
 }
+
+// Нова функція для завантаження замовлень
+function loadOrders() {
+    const $ordersList = $("#adminOrdersList").html(
+        '<div class="loading"><div class="spinner"></div></div>'
+    );
+
+    axios.get(`${API_BASE_URL}/api/orders`, { params: { adminId } })
+        .then(({ data }) => {
+            state.orders = data;
+            $ordersList.empty();
+            if (!data.length) {
+                $ordersList.html('<p class="no-items">Немає активних замовлень</p>');
+                return;
+            }
+
+            data.forEach(order => {
+                const orderItemsHtml = order.items.map(item =>
+                    `<li>• ${item.name} x ${item.quantity} (додав/ла ${item.addedBy || 'власник'})</li>`
+                ).join('');
+
+                const orderCard = `
+                    <div class="admin-order-item" data-id="${order._id}">
+                        <div class="order-header">
+                            <h4>Замовлення №${order._id.slice(-6).toUpperCase()}</h4>
+                            <span>${new Date(order.dateTime).toLocaleString('uk-UA')}</span>
+                        </div>
+                        <div class="order-details">
+                            <p><strong>Клієнт:</strong> @${order.userName || 'Анонім'} ${order.isGroupOrder ? '<strong>(Спільне)</strong>' : ''}</p>
+                            <ul>${orderItemsHtml}</ul>
+                        </div>
+                        <div class="order-footer">
+                            <span class="order-total">Всього: ${order.total} грн</span>
+                            <button class="btn btn-accept" data-id="${order._id}">
+                                <span>✅</span> Прийняти
+                            </button>
+                        </div>
+                    </div>
+                `;
+                $ordersList.append(orderCard);
+            });
+        })
+        .catch((error) => {
+            console.error("Помилка завантаження замовлень:", error);
+            $ordersList.html('<p class="error">Помилка завантаження замовлень</p>');
+        });
+}
+
 
 // Завантаження списку страв
 function loadMenuItems() {
@@ -73,17 +124,17 @@ function loadMenuItems() {
         $menuList.html('<p class="no-items">Немає страв у меню</p>');
         return;
       }
-      data.forEach(({ id, image, name, price, category }) => {
+      data.forEach(({ id, image, name, price, category, description }) => { // Додав description до деструктуризації
         $menuList.append(`
-          <div class="admin-menu-item" data-id="${id}">
-            <img src="${image}" alt="${name}" onerror="this.src='placeholder.jpg'">
+          <div class="admin-menu-item" data-id="${id}" data-description="${description}" data-category="${category}">
+            <img src="${image || './placeholder.jpg'}" alt="${name}" onerror="this.onerror=null;this.src='./placeholder.jpg';">
             <div class="admin-menu-info">
               <h4>${name}</h4>
               <p>${price} грн - ${category}</p>
             </div>
             <div class="admin-menu-actions">
-              <button class="edit-btn">✏️</button>
-              <button class="delete-btn">🗑️</button>
+              <button class="btn-icon btn-edit">✏️</button>
+              <button class="btn-icon btn-delete">🗑️</button>
             </div>
           </div>
         `);
@@ -101,14 +152,17 @@ function resetForm() {
   $("#itemId").val("");
   $("#formIcon").text("➕");
   $("#formTitle").text("Додати нову страву");
-  $("#formSubmitBtn").html("<span>➕</span> Додати страву");
+  $("#formSubmitBtn").html("<span>➕</span> Додати страву").prop("disabled", false);
   $("#cancelEditBtn").hide();
   $("#fileLabel").text("📷 Оберіть зображення");
 }
 
 // Показ повідомлення про помилку або успіх
-function showToast(message) {
+function showToast(message, isError = false) {
   const $toast = $('<div class="toast"></div>').text(message);
+  if (isError) {
+      $toast.addClass('error');
+  }
   $("body").append($toast);
   setTimeout(() => {
     $toast.addClass("show");
@@ -122,6 +176,7 @@ $(document).ready(() => {
   updateDashboardStats();
   loadAnalytics();
   loadMenuItems();
+  loadOrders(); // Завантажуємо замовлення при старті
 
   // Зміна назви файлу при виборі зображення
   $("#itemImage").on("change", (e) => {
@@ -158,24 +213,25 @@ $(document).ready(() => {
       .then(() => {
         loadMenuItems();
         updateDashboardStats();
-        loadAnalytics();
         resetForm();
         showToast(`Страву успішно ${itemId ? "оновлено" : "додано"}!`);
       })
       .catch((error) => {
-        showToast(`Помилка: ${error.response?.data?.error || "Не вдалося зберегти страву"}`);
+        showToast(`Помилка: ${error.response?.data?.error || "Не вдалося зберегти страву"}`, true);
       })
       .finally(() => {
-        $("#formSubmitBtn")
-          .prop("disabled", false)
-          .html(`<span>${itemId ? "💾" : "➕"}</span> ${itemId ? "Зберегти зміни" : "Додати страву"}`);
+        // Кнопка скидається у функції resetForm()
       });
   });
 
   // Редагування страви
-  $("#adminMenuList").on("click", ".edit-btn", function () {
-    const itemId = $(this).closest(".admin-menu-item").data("id");
-    const item = state.menuItems.find((i) => i.id === itemId);
+  $("#adminMenuList").on("click", ".btn-edit", function () {
+    const $itemElement = $(this).closest(".admin-menu-item");
+    const itemId = $itemElement.data("id");
+    
+    // Шукаємо елемент в стані, щоб отримати повні дані
+    const item = state.menuItems.find(i => i.id === itemId);
+
     if (item) {
       $("#itemId").val(item.id);
       $("#itemName").val(item.name);
@@ -185,11 +241,11 @@ $(document).ready(() => {
       $("#fileLabel").text("📷 Змінити зображення");
       $("#formIcon").text("✏️");
       $("#formTitle").text("Редагувати страву");
-      $("#formSubmitBtn").html("<span>💾</span> Зберегти зміни");
+      $("#formSubmitBtn").html("<span>💾</span> Зберегти зміни").prop('disabled', false);
       $("#cancelEditBtn").show();
-      window.scrollTo(0, 0);
+      $('html, body').animate({ scrollTop: 0 }, 'smooth');
     } else {
-      showToast("Помилка завантаження даних страви");
+      showToast("Помилка: не вдалося завантажити дані страви.", true);
     }
   });
 
@@ -197,7 +253,7 @@ $(document).ready(() => {
   $("#cancelEditBtn").on("click", resetForm);
 
   // Видалення страви
-  $("#adminMenuList").on("click", ".delete-btn", function () {
+  $("#adminMenuList").on("click", ".btn-delete", function () {
     if (!confirm("Ви впевнені, що хочете видалити цю страву?")) return;
 
     const itemId = $(this).closest(".admin-menu-item").data("id");
@@ -206,12 +262,40 @@ $(document).ready(() => {
       .then(() => {
         loadMenuItems();
         updateDashboardStats();
-        loadAnalytics();
         showToast("Страву успішно видалено!");
       })
       .catch((error) => {
-        showToast(`Помилка: ${error.response?.data?.error || "Не вдалося видалити страву"}`);
+        showToast(`Помилка: ${error.response?.data?.error || "Не вдалося видалити страву"}`, true);
       });
   });
-});
+  
+  // Новий обробник для прийняття замовлення
+  $("#adminOrdersList").on("click", ".btn-accept", function () {
+      if (!confirm("Ви впевнені, що хочете прийняти це замовлення? Клієнту буде надіслано сповіщення.")) return;
 
+      const orderId = $(this).data("id");
+      const $button = $(this);
+
+      $button.prop("disabled", true).html('<span>🔄</span> Обробка...');
+
+      axios.post(`${API_BASE_URL}/api/orders/update-status/${orderId}`, {
+          adminId,
+          status: "Прийнято",
+      })
+      .then(() => {
+          showToast("Замовлення прийнято! Клієнт отримав сповіщення.");
+          // Плавне видалення картки замовлення з інтерфейсу
+          $button.closest('.admin-order-item').fadeOut(500, function() { 
+              $(this).remove();
+              if ($("#adminOrdersList").children().length === 0) {
+                  loadOrders(); // Перезавантажуємо, щоб показати повідомлення "Немає активних замовлень"
+              }
+          });
+      })
+      .catch((error) => {
+          showToast(`Помилка: ${error.response?.data?.error || "Не вдалося прийняти замовлення"}`, true);
+          $button.prop("disabled", false).html('<span>✅</span> Прийняти');
+      });
+  });
+
+});
