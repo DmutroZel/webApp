@@ -102,7 +102,12 @@ const orderSchema = new mongoose.Schema({
   dateTime: { type: Date, default: Date.now },
   isGroupOrder: Boolean,
   participants: [{ id: String, name: String }],
+  acceptedAt: { type: Date } // Поле для дати прийняття замовлення
 });
+
+// Індекс для автоматичного видалення через 2 години (7200 секунд) після дати в `acceptedAt`
+orderSchema.index({ "acceptedAt": 1 }, { expireAfterSeconds: 7200 });
+
 
 const groupCartSchema = new mongoose.Schema({
   inviteCode: { type: String, unique: true, required: true },
@@ -123,20 +128,13 @@ const Order = mongoose.model("Order", orderSchema);
 const GroupCart = mongoose.model("GroupCart", groupCartSchema);
 
 // --- WEBSOCKET ЛОГІКА ---
-
-// Зберігання сокетів користувачів
 const userSockets = {};
-
 io.on("connection", socket => {
   console.log(`🔗 Користувач підключився: ${socket.id}`);
-
-  // Реєстрація користувача
   socket.on("register", userId => {
     userSockets[userId] = socket.id;
     console.log(`👤 Користувач ${userId} зареєстрований`);
   });
-
-  // Створення спільного кошика
   socket.on('create_group_cart', async data => {
     const { ownerId, ownerName } = data;
     const inviteCode = uuidv4().slice(0, 8);
@@ -150,8 +148,6 @@ io.on("connection", socket => {
     socket.join(inviteCode);
     socket.emit('group_cart_created', { inviteCode });
   });
-
-  // Приєднання до спільного кошика
   socket.on('join_group_cart', async data => {
     const { inviteCode, userId, userName } = data;
     const groupCart = await GroupCart.findOne({ inviteCode });
@@ -166,8 +162,6 @@ io.on("connection", socket => {
       socket.emit('error', { message: 'Спільний кошик не знайдено' });
     }
   });
-
-  // Додавання до спільного кошика
   socket.on('add_to_group_cart', async data => {
     const { inviteCode, item, userName } = data;
     const groupCart = await GroupCart.findOne({ inviteCode });
@@ -182,8 +176,6 @@ io.on("connection", socket => {
       io.to(inviteCode).emit('group_cart_updated', groupCart);
     }
   });
-
-  // Оновлення кількості у спільному кошику
   socket.on('update_group_cart_item', async ({ inviteCode, itemId, quantity, userName }) => {
     const groupCart = await GroupCart.findOne({ inviteCode });
     if (groupCart) {
@@ -198,8 +190,6 @@ io.on("connection", socket => {
       }
     }
   });
-
-  // Відключення користувача
   socket.on("disconnect", () => {
     for (const [userId, socketId] of Object.entries(userSockets)) {
       if (socketId === socket.id) {
@@ -213,7 +203,6 @@ io.on("connection", socket => {
 
 // --- TELEGRAM BOT ЛОГІКА ---
 
-// Команда /start
 bot.onText(/\/start/, msg => {
   const deepLinkPayload = msg.text.split(' ')[1];
   let webAppUrl = config.WEBAPP_URL;
@@ -232,7 +221,6 @@ bot.onText(/\/start/, msg => {
   });
 });
 
-// Команда /admin
 bot.onText(/\/admin/, msg => {
   const chatId = msg.chat.id;
   if (!config.ADMIN_IDS.includes(chatId)) {
@@ -247,7 +235,6 @@ bot.onText(/\/admin/, msg => {
   });
 });
 
-// Обробка даних із WebApp
 bot.on("message", async msg => {
   if (!msg.web_app_data) return;
   try {
@@ -266,8 +253,6 @@ bot.on("message", async msg => {
     });
     await order.save();
     const orderIdShort = order._id.toString().slice(-6).toUpperCase();
-
-    // Сповіщення учасників спільного замовлення
     if (data.isGroupOrder && data.participants) {
       const creatorName = data.participants.find(p => p.id === chatId)?.name || userName;
       for (const participant of data.participants) {
@@ -282,8 +267,6 @@ bot.on("message", async msg => {
         `✅ Ваше замовлення №${orderIdShort} прийнято.\nСтатус: Очікується\nСума: ${data.total} грн`
       );
     }
-
-    // Сповіщення адміністраторів
     const orderDetails = data.items
       .map(item => `• ${item.name} x${item.quantity} (додав/ла ${item.addedBy || 'власник'}) - ${item.price * item.quantity} грн`)
       .join("\n");
@@ -298,8 +281,6 @@ bot.on("message", async msg => {
         { parse_mode: "Markdown" }
       );
     }
-
-    // Запит оцінки через 10 секунд
     setTimeout(async () => {
       const uniqueItemsToRate = data.items.reduce((acc, current) => {
         if (!acc.find(item => item.id === current.id)) {
@@ -341,7 +322,6 @@ bot.on("message", async msg => {
   }
 });
 
-// Обробка оцінки
 bot.on("callback_query", async query => {
   const [action, orderId, itemId, rating] = query.data.split("_");
   if (action === "rate") {
@@ -367,13 +347,11 @@ bot.on("callback_query", async query => {
 
 // --- API МАРШРУТИ ---
 
-// WebHook для Telegram
 app.post(`/bot${process.env.TELEGRAM_TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
-// API для чату
 app.post("/api/chat", async (req, res) => {
   try {
     const { message, history } = req.body;
@@ -419,7 +397,6 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// API для меню
 app.get("/api/menu", async (req, res) => {
   try {
     const menu = await Menu.find().sort({ id: 1 });
@@ -535,7 +512,6 @@ app.post("/api/menu/:id/rate", async (req, res) => {
   }
 });
 
-// API для спільного кошика
 app.get('/api/group-cart/:inviteCode', async (req, res) => {
   try {
     const { inviteCode } = req.params;
@@ -576,12 +552,12 @@ app.post('/api/group-cart/checkout', async (req, res) => {
   res.json({ success: true, message: "Замовлення оформлено!" });
 });
 
-// API для замовлень
 app.get("/api/orders", async (req, res) => {
   try {
     const { adminId, userId } = req.query;
+    // Для адміна показуємо тільки замовлення, що очікують
     const query = adminId && config.ADMIN_IDS.includes(parseInt(adminId))
-      ? {}
+      ? { status: "Очікується" }
       : userId ? { chatId: userId } : {};
     const orders = await Order.find(query).sort({ dateTime: -1 });
     res.json(orders);
@@ -601,23 +577,29 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
       return res.status(404).json({ error: "Замовлення не знайдено" });
     }
     order.status = status;
+    // Якщо статус 'Прийнято', встановлюємо час для автоматичного видалення
+    if (status === "Прийнято") {
+        order.acceptedAt = new Date();
+    }
     await order.save();
     const orderIdShort = order._id.toString().slice(-6).toUpperCase();
+
+    // Формуємо повідомлення для користувача
+    const finalMessage = status === "Прийнято"
+        ? `✅ Ваше замовлення №*${orderIdShort}* прийнято та готується!`
+        : `🔔 Статус замовлення №*${orderIdShort}*: *${status}*`;
+    const groupMessage = status === "Прийнято"
+        ? `✅ Спільне замовлення №*${orderIdShort}* прийнято та готується!`
+        : `🔔 Статус спільного замовлення №*${orderIdShort}*: *${status}*`;
+
     if (order.isGroupOrder && order.participants) {
       for (const participant of order.participants) {
-        await bot.sendMessage(
-          participant.id,
-          `🔔 Статус спільного замовлення №*${orderIdShort}*: *${status}*`,
-          { parse_mode: "Markdown" }
-        );
+        await bot.sendMessage(participant.id, groupMessage, { parse_mode: "Markdown" });
       }
     } else {
-      await bot.sendMessage(
-        order.chatId,
-        `🔔 Статус замовлення №*${orderIdShort}*: *${status}*`,
-        { parse_mode: "Markdown" }
-      );
+      await bot.sendMessage(order.chatId, finalMessage, { parse_mode: "Markdown" });
     }
+
     const userSocketId = userSockets[order.chatId];
     if (userSocketId) {
       io.to(userSocketId).emit("status_updated", {
@@ -627,11 +609,11 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
     }
     res.json({ success: true, order });
   } catch (error) {
+    console.error("Помилка оновлення статусу:", error);
     res.status(500).json({ error: "Помилка сервера" });
   }
 });
 
-// API для аналітики
 app.get("/api/analytics/summary", async (req, res) => {
   try {
     const { adminId } = req.query;
