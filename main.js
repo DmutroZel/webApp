@@ -9,7 +9,7 @@
       API_BASE_URL: "", // Базовий URL для API
       currentUser: {
         id: telegramApp.initDataUnsafe.user?.id.toString() || 'unknown', // ID користувача
-       name: telegramApp.initDataUnsafe.user?.username ||
+        name: telegramApp.initDataUnsafe.user?.username ||
               `${telegramApp.initDataUnsafe.user?.first_name || ''} ${telegramApp.initDataUnsafe.user?.last_name || ''}`.trim() ||
               'Анонім', // Ім'я користувача
       }
