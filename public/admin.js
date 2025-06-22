@@ -26,30 +26,6 @@ function loadAnalytics() {
     .then(({ data: { salesByCategory, topSellingItems } }) => {
       const ctx = document.getElementById("salesByCategoryChart").getContext("2d");
       if (salesChart) salesChart.destroy();
-      // Примітка: Chart.js не завантажений у вашому HTML, тому цей код може викликати помилку.
-      // Щоб він запрацював, потрібно додати Chart.js до <head>
-      /*
-      salesChart = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: salesByCategory.map((item) => item._id),
-          datasets: [{
-            label: "Продажі",
-            data: salesByCategory.map((item) => item.totalSales),
-            backgroundColor: ["#ff6b35", "#2c3e50", "#f39c12", "#27ae60", "#8e44ad"],
-            borderColor: "#ffffff",
-            borderWidth: 2,
-          }],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: "top" },
-            title: { display: false },
-          },
-        },
-      });
-      */
 
       const $topItemsList = $("#topSellingItemsList").empty();
       topSellingItems.length
@@ -124,7 +100,7 @@ function loadMenuItems() {
         $menuList.html('<p class="no-items">Немає страв у меню</p>');
         return;
       }
-      data.forEach(({ id, image, name, price, category, description }) => { // Додав description до деструктуризації
+      data.forEach(({ id, image, name, price, category, description }) => { 
         $menuList.append(`
           <div class="admin-menu-item" data-id="${id}" data-description="${description}" data-category="${category}">
             <img src="${image || './placeholder.jpg'}" alt="${name}" onerror="this.onerror=null;this.src='./placeholder.jpg';">
@@ -176,9 +152,9 @@ $(document).ready(() => {
   updateDashboardStats();
   loadAnalytics();
   loadMenuItems();
-  loadOrders(); // Завантажуємо замовлення при старті
+  loadOrders(); 
 
-  // Зміна назви файлу при виборі зображення
+ 
   $("#itemImage").on("change", (e) => {
     const file = e.target.files[0];
     $("#fileLabel").text(file ? file.name : "📷 Оберіть зображення");

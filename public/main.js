@@ -1,9 +1,6 @@
 const telegramApp = window.Telegram.WebApp;
 telegramApp.expand();
 
-// Логування для діагностики
-console.log("Telegram initDataUnsafe:", telegramApp.initDataUnsafe);
-console.log("Telegram initDataUnsafe.user:", telegramApp.initDataUnsafe.user);
 
 // Стан додатку
 const state = {
@@ -12,9 +9,9 @@ const state = {
   API_BASE_URL: "",
   currentUser: {
     id: telegramApp.initDataUnsafe.user?.id?.toString() || 'unknown',
-    name: telegramApp.initDataUnsafe.user?.username 
-      ? `@${telegramApp.initDataUnsafe.user.username}` 
-      : `${telegramApp.initDataUnsafe.user?.first_name || ''} ${telegramApp.initDataUnsafe.user?.last_name || ''}`.trim() || 'Анонім'
+    username: telegramApp.initDataUnsafe.user?.username || 'unknown',
+    firstName: telegramApp.initDataUnsafe.user?.first_name || 'unknown',
+    lastName: telegramApp.initDataUnsafe.user?.last_name || 'unknown'
   }
 };
 
