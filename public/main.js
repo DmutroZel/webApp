@@ -1,19 +1,20 @@
-// Налаштування Telegram WebApp
-    const telegramApp = window.Telegram.WebApp;
-    telegramApp.expand();
+const telegramApp = window.Telegram.WebApp;
+telegramApp.expand();
 
-    // Стан додатку
-    const state = {
-      menuItems: [], // Список страв у меню
-      cartItems: [], // Елементи у кошику
-      API_BASE_URL: "", // Базовий URL для API
-      currentUser: {
-        id: telegramApp.initDataUnsafe.user?.id.toString() || 'unknown', // ID користувача
-        name: telegramApp.initDataUnsafe.user?.username ||
-              `${telegramApp.initDataUnsafe.user?.first_name || ''} ${telegramApp.initDataUnsafe.user?.last_name || ''}`.trim() ||
-              'Анонім', // Ім'я користувача
-      }
-    };
+console.log("Telegram initDataUnsafe:", telegramApp.initDataUnsafe);
+
+// Стан додатку
+const state = {
+  menuItems: [],
+  cartItems: [],
+  API_BASE_URL: "",
+  currentUser: {
+    id: telegramApp.initDataUnsafe.user?.id?.toString() || 'unknown',
+    name: telegramApp.initDataUnsafe.user?.username 
+      ? `@${telegramApp.initDataUnsafe.user.username}` // Додаємо @ для username
+      : `${telegramApp.initDataUnsafe.user?.first_name || ''} ${telegramApp.initDataUnsafe.user?.last_name || ''}`.trim() || 'Анонім'
+  }
+};
 
     // --- ФУНКЦІЇ ДЛЯ МЕНЮ ---
 
@@ -150,30 +151,33 @@
     }
 
     // Оформлення замовлення
-    function checkout() {
-      if (!state.cartItems.length) {
-        alert("Кошик порожній!");
-        return;
-      }
-      
-      const totalSum = state.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const orderData = {
-        chatId: state.currentUser.id,
-        userName: state.currentUser.name,
-        items: state.cartItems.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
-        total: totalSum,
-        status: "Очікується",
-        dateTime: new Date().toISOString()
-      };
-      try {
-        telegramApp.sendData(JSON.stringify(orderData));
-        showSuccess();
-        resetCartState();
-      } catch (error) {
-        console.error("Помилка відправки даних:", error);
-        alert("Помилка при оформленні замовлення. Спробуйте ще раз.");
-      }
-    }
+  function checkout() {
+  if (!state.cartItems.length) {
+    alert("Кошик порожній!");
+    return;
+  }
+  
+  const totalSum = state.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const orderData = {
+    chatId: state.currentUser.id,
+    userName: state.currentUser.name,
+    items: state.cartItems.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
+    total: totalSum,
+    status: "Очікується",
+    dateTime: new Date().toISOString()
+  };
+  
+  console.log("Sending orderData:", orderData); // Лог для діагностики
+  
+  try {
+    telegramApp.sendData(JSON.stringify(orderData));
+    showSuccess();
+    resetCartState();
+  } catch (error) {
+    console.error("Помилка відправки даних:", error);
+    alert("Помилка при оформленні замовлення. Спробуйте ще раз.");
+  }
+}
 
     // Показ повідомлення про успішне замовлення
     function showSuccess() {
