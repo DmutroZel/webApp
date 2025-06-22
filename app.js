@@ -414,31 +414,37 @@ app.get("/api/orders", async (req, res) => {
   }
 });
 
+const VALID_STATUSES = ["Очікує", "Прийнято", "Відхилено", "Завершено"];
+
 app.post("/api/orders/update-status/:id", async (req, res) => {
   try {
     const { adminId, status } = req.body;
     if (!config.ADMIN_IDS.includes(parseInt(adminId))) {
       return res.status(403).json({ error: "Доступ заборонено" });
     }
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ error: "Недопустимий статус" });
+    }
     const order = await Order.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ error: "Замовлення не знайдено" });
     }
     order.status = status;
-    // Якщо статус 'Прийнято', встановлюємо час для автоматичного видалення
     if (status === "Прийнято") {
-        order.acceptedAt = new Date();
+      order.acceptedAt = new Date();
     }
     await order.save();
     const orderIdShort = order._id.toString().slice(-6).toUpperCase();
 
-    // Формуємо повідомлення для користувача
-    const finalMessage = status === "Прийнято"
-        ? `✅ Ваше замовлення №*${orderIdShort}* прийнято та готується!`
-        : `🔔 Статус замовлення №*${orderIdShort}*: *${status}*`;
+    const finalMessage =
+      status === "Прийнято"
+        ? `✅ Ваше замовлення №${orderIdShort} прийнято та готується!`
+        : `🦘 Статус замовлення №${orderIdShort}: *${status}`;
 
-    await bot.sendMessage(order.chatId, finalMessage, { parse_mode: "Markdown" });
-    
+    await bot.sendMessage(order.chatId, finalMessage, {
+      parse_mode: "Markdown",
+    });
+
     res.json({ success: true, order });
   } catch (error) {
     console.error("Помилка оновлення статусу:", error);
