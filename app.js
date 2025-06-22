@@ -12,7 +12,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 dotenv.config();
 
-// --- ІНІЦІАЛІЗАЦІЯ ---
+
 
 // Налаштування Google Generative AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
@@ -54,7 +54,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// --- MONGO DB ---
+
 
 // Підключення до MongoDB
 mongoose
