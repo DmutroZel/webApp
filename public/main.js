@@ -1,7 +1,9 @@
 const telegramApp = window.Telegram.WebApp;
 telegramApp.expand();
 
+// Логування для діагностики
 console.log("Telegram initDataUnsafe:", telegramApp.initDataUnsafe);
+console.log("Telegram initDataUnsafe.user:", telegramApp.initDataUnsafe.user);
 
 // Стан додатку
 const state = {
@@ -11,11 +13,12 @@ const state = {
   currentUser: {
     id: telegramApp.initDataUnsafe.user?.id?.toString() || 'unknown',
     name: telegramApp.initDataUnsafe.user?.username 
-      ? `@${telegramApp.initDataUnsafe.user.username}` // Додаємо @ для username
+      ? `@${telegramApp.initDataUnsafe.user.username}` 
       : `${telegramApp.initDataUnsafe.user?.first_name || ''} ${telegramApp.initDataUnsafe.user?.last_name || ''}`.trim() || 'Анонім'
   }
 };
 
+console.log("Current User:", state.currentUser);
     // --- ФУНКЦІЇ ДЛЯ МЕНЮ ---
 
     // Завантаження меню з сервера
@@ -151,7 +154,8 @@ const state = {
     }
 
     // Оформлення замовлення
-  function checkout() {
+ 
+function checkout() {
   if (!state.cartItems.length) {
     alert("Кошик порожній!");
     return;
@@ -167,7 +171,7 @@ const state = {
     dateTime: new Date().toISOString()
   };
   
-  console.log("Sending orderData:", orderData); // Лог для діагностики
+  console.log("Sending orderData:", orderData);
   
   try {
     telegramApp.sendData(JSON.stringify(orderData));
