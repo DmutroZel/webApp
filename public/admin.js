@@ -78,7 +78,7 @@ function loadOrders() {
 
             data.forEach(order => {
                 const orderItemsHtml = order.items.map(item =>
-                    `<li>• ${item.name} x ${item.quantity} (додав/ла ${item.addedBy || 'власник'})</li>`
+                    `<li>• ${item.name} x ${item.quantity}</li>`
                 ).join('');
 
                 const orderCard = `
@@ -88,7 +88,7 @@ function loadOrders() {
                             <span>${new Date(order.dateTime).toLocaleString('uk-UA')}</span>
                         </div>
                         <div class="order-details">
-                            <p><strong>Клієнт:</strong> @${order.userName || 'Анонім'} ${order.isGroupOrder ? '<strong>(Спільне)</strong>' : ''}</p>
+                            <p><strong>Клієнт:</strong> @${order.userName || 'Анонім'}</p>
                             <ul>${orderItemsHtml}</ul>
                         </div>
                         <div class="order-footer">

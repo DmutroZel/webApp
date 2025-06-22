@@ -6,12 +6,12 @@
     const state = {
       menuItems: [], // Список страв у меню
       cartItems: [], // Елементи у кошику
-      groupCart: null, // Дані спільного кошика
-      socket: io(), // Підключення до сокет-сервера
       API_BASE_URL: "", // Базовий URL для API
       currentUser: {
         id: telegramApp.initDataUnsafe.user?.id.toString() || 'unknown', // ID користувача
-        name: telegramApp.initDataUnsafe.user?.username || 'Анонім' // Ім'я користувача
+        name: telegramApp.initDataUnsafe.user?.username ||
+              `${telegramApp.initDataUnsafe.user?.first_name || ''} ${telegramApp.initDataUnsafe.user?.last_name || ''}`.trim() ||
+              'Анонім', // Ім'я користувача
       }
     };
 
@@ -79,23 +79,16 @@
     function addToCart(itemId) {
       const item = state.menuItems.find(i => i.id === itemId);
       if (!item) return;
-
-      if (state.groupCart) {
-        state.socket.emit('add_to_group_cart', {
-          inviteCode: state.groupCart.inviteCode,
-          item: { id: item.id, name: item.name, price: item.price },
-          userName: state.currentUser.name
-        });
+        
+      const existingItem = state.cartItems.find(i => i.id === itemId);
+      if (existingItem) {
+        existingItem.quantity++;
       } else {
-        const existingItem = state.cartItems.find(i => i.id === itemId);
-        if (existingItem) {
-          existingItem.quantity++;
-        } else {
-          state.cartItems.push({ ...item, quantity: 1 });
-        }
-        updateCartItems();
-        updateCartCount();
+        state.cartItems.push({ ...item, quantity: 1 });
       }
+      updateCartItems();
+      updateCartCount();
+      
       animateAddToCartButton(itemId);
     }
 
@@ -119,20 +112,17 @@
         $cartItemsContainer.html('<div class="no-items">Ваш кошик порожній</div>');
       } else {
         state.cartItems.forEach(item => {
-          const isGroupItem = state.groupCart && item.addedBy;
-          const canEdit = !isGroupItem || item.addedBy === state.currentUser.name;
           const $cartItem = $("<div>")
             .addClass("cart-item")
             .html(`
               <div class="cart-item-info">
                 <h3 class="cart-item-name">${item.name}</h3>
                 <div class="cart-item-price">${item.price} грн</div>
-                ${isGroupItem ? `<div class="cart-item-added-by">Додав: ${item.addedBy}</div>` : ''}
               </div>
               <div class="cart-item-quantity">
-                <button class="quantity-btn decrease" data-id="${item.id}" ${!canEdit ? 'disabled' : ''}>-</button>
+                <button class="quantity-btn decrease" data-id="${item.id}">-</button>
                 <span>${item.quantity}</span>
-                <button class="quantity-btn increase" data-id="${item.id}" ${!canEdit ? 'disabled' : ''}>+</button>
+                <button class="quantity-btn increase" data-id="${item.id}">+</button>
               </div>
             `);
           $cartItemsContainer.append($cartItem);
@@ -143,26 +133,14 @@
 
     // Зміна кількості страви у кошику
     function changeQuantity(itemId, increment) {
-      if (state.groupCart) {
-        const item = state.cartItems.find(i => i.id === itemId && i.addedBy === state.currentUser.name);
-        if (item) {
-          state.socket.emit('update_group_cart_item', {
-            inviteCode: state.groupCart.inviteCode,
-            itemId,
-            quantity: item.quantity + increment,
-            userName: state.currentUser.name
-          });
-        }
-      } else {
-        const item = state.cartItems.find(i => i.id === itemId);
-        if (!item) return;
-        item.quantity += increment;
-        if (item.quantity <= 0) {
-          state.cartItems = state.cartItems.filter(i => i.id !== itemId);
-        }
-        updateCartItems();
-        updateCartCount();
+      const item = state.cartItems.find(i => i.id === itemId);
+      if (!item) return;
+      item.quantity += increment;
+      if (item.quantity <= 0) {
+        state.cartItems = state.cartItems.filter(i => i.id !== itemId);
       }
+      updateCartItems();
+      updateCartCount();
     }
 
     // Оновлення загальної суми
@@ -177,38 +155,23 @@
         alert("Кошик порожній!");
         return;
       }
-      if (state.groupCart && state.currentUser.id !== state.groupCart.ownerId) {
-        alert("Тільки власник кошика може оформити замовлення.");
-        return;
-      }
-      if (state.groupCart) {
-        axios.post(`${state.API_BASE_URL}/api/group-cart/checkout`, {
-          inviteCode: state.groupCart.inviteCode
-        }).then(() => {
-          showSuccess();
-          resetCartState();
-        }).catch(error => {
-          console.error("Помилка оформлення спільного замовлення:", error);
-          alert("Помилка при оформленні спільного замовлення.");
-        });
-      } else {
-        const totalSum = state.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const orderData = {
-          chatId: state.currentUser.id,
-          userName: state.currentUser.name,
-          items: state.cartItems.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
-          total: totalSum,
-          status: "Очікується",
-          dateTime: new Date().toISOString()
-        };
-        try {
-          telegramApp.sendData(JSON.stringify(orderData));
-          showSuccess();
-          resetCartState();
-        } catch (error) {
-          console.error("Помилка відправки даних:", error);
-          alert("Помилка при оформленні замовлення. Спробуйте ще раз.");
-        }
+      
+      const totalSum = state.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const orderData = {
+        chatId: state.currentUser.id,
+        userName: state.currentUser.name,
+        items: state.cartItems.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
+        total: totalSum,
+        status: "Очікується",
+        dateTime: new Date().toISOString()
+      };
+      try {
+        telegramApp.sendData(JSON.stringify(orderData));
+        showSuccess();
+        resetCartState();
+      } catch (error) {
+        console.error("Помилка відправки даних:", error);
+        alert("Помилка при оформленні замовлення. Спробуйте ще раз.");
       }
     }
 
@@ -223,61 +186,9 @@
     // Скидання стану кошика
     function resetCartState() {
       state.cartItems = [];
-      state.groupCart = null;
-      $('#groupCartInfo').hide();
       $('#cartTitle').text('Ваше замовлення');
-      $('#checkoutBtn').prop('disabled', false).text('Оформити замовлення');
       updateCartItems();
       updateCartCount();
-    }
-
-    // --- ФУНКЦІЇ ДЛЯ СПІЛЬНОГО КОШИКА ---
-
-    // Обробка URL для приєднання до спільного кошика
-    function handleGroupCartURL() {
-      const params = new URLSearchParams(window.location.search);
-      const inviteCode = params.get('groupCart');
-      if (inviteCode) {
-        state.socket.emit('join_group_cart', {
-          inviteCode,
-          userId: state.currentUser.id,
-          userName: state.currentUser.name
-        });
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-
-    // Створення спільного кошика
-    function createGroupCart() {
-      state.socket.emit('create_group_cart', {
-        ownerId: state.currentUser.id,
-        ownerName: state.currentUser.name
-      });
-    }
-
-    // Показ модального вікна з посиланням для запрошення
-    function showGroupCartInviteModal(inviteCode) {
-      const inviteLink = `https://t.me/${telegramApp.initData.bot_username}?start=groupCart_${inviteCode}`;
-      $('#groupCartInviteLink').val(inviteLink);
-      $('#groupCartModalOverlay').css('display', 'flex');
-    }
-
-    // Оновлення відображення спільного кошика
-    function updateGroupCartView(data) {
-      state.groupCart = data;
-      state.cartItems = data.items;
-      $('#cartTitle').text('Спільне замовлення');
-      $('#groupCartInfo').show();
-      $('#groupCartOwner').text(data.participants.find(p => p.id === data.ownerId)?.name || 'N/A');
-      $('#groupCartParticipants').text(data.participants.map(p => p.name).join(', '));
-      if (state.currentUser.id !== state.groupCart.ownerId) {
-        $('#checkoutBtn').prop('disabled', true).text('Очікування власника');
-      } else {
-        $('#checkoutBtn').prop('disabled', false).text('Оформити спільне замовлення');
-      }
-      updateCartCount();
-      updateCartItems();
-      updateTotal();
     }
 
     // --- ФУНКЦІЇ ДЛЯ МОДАЛЬНОГО ВІКНА СТРАВИ ---
@@ -356,44 +267,6 @@
     $(document).ready(() => {
       // Початкове завантаження
       loadMenu();
-      handleGroupCartURL();
-
-      // Налаштування сокетів
-      state.socket.on('connect', () => {
-        console.log('Socket connected:', state.socket.id);
-        state.socket.emit('register', state.currentUser.id);
-      });
-
-      state.socket.on('group_cart_created', ({ inviteCode }) => {
-        showGroupCartInviteModal(inviteCode);
-        state.socket.emit('join_group_cart', {
-          inviteCode,
-          userId: state.currentUser.id,
-          userName: state.currentUser.name
-        });
-      });
-
-      state.socket.on('group_cart_updated', data => {
-        updateGroupCartView(data);
-        if (!$('#cartContainer').hasClass('active')) {
-          $('#openCart').click();
-        }
-      });
-
-      state.socket.on('error', data => {
-        alert(`Помилка: ${data.message}`);
-      });
-
-      // Обробка кнопок спільного кошика
-      $('#createGroupOrderBtn').on('click', createGroupCart);
-      $('#closeGroupCartModal').on('click', () => $('#groupCartModalOverlay').hide());
-      $('#copyInviteLinkBtn').on('click', function() {
-        const linkInput = $('#groupCartInviteLink');
-        linkInput.select();
-        document.execCommand('copy');
-        $(this).text('Скопійовано!');
-        setTimeout(() => $(this).text('Копіювати посилання'), 2000);
-      });
 
       // Вибір категорії меню
       $(".categories").on("click", ".category", function() {
