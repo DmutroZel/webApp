@@ -111,7 +111,6 @@ bot.onText(/\/start/, msg => {
     reply_markup: {
       keyboard: [
         [{ text: "🛒 Замовити їжу", web_app: { url: config.WEBAPP_URL } }],
-        [{ text: "📊 Мої замовлення", web_app: { url: `${config.WEBAPP_URL}/orders.html?userId=${msg.chat.id}` } }],
       ],
       resize_keyboard: true,
     },
@@ -136,16 +135,19 @@ bot.on("message", async msg => {
   if (!msg.web_app_data) return;
   try {
     const data = JSON.parse(msg.web_app_data.data);
+    // Логування для діагностики
+    console.log("Received msg.from:", msg.from);
+    console.log("Received web_app_data:", data);
+    
     const chatId = data.chatId && data.chatId !== "unknown" ? data.chatId.toString() : msg.chat.id.toString();
-    // Оновлена логіка для userName
     const userName = data.userName && data.userName !== "unknown" 
       ? data.userName 
       : msg.from.username 
         ? `@${msg.from.username}` 
         : `${msg.from.first_name || ''} ${msg.from.last_name || ''}`.trim() || 'Анонім';
     
-    console.log("Received order from:", { chatId, userName, data }); // Додаємо лог для діагностики
-
+    console.log("Determined userName:", userName); // Лог для перевірки
+    
     const order = new Order({
       chatId,
       userName,
@@ -170,7 +172,7 @@ bot.on("message", async msg => {
       await bot.sendMessage(
         adminId,
         `🔔 *Нове замовлення №${orderIdShort}*\n\n` +
-        `*Від:* ${userName} (ID: \`${chatId}\`)\n` + // Використовуємо userName без @ для адмінів
+        `*Від:* ${userName} (ID: \`${chatId}\`)\n` +
         `*Склад:*\n${orderDetails}\n` +
         `*Сума:* ${data.total} грн\n` +
         `*Час:* ${new Date().toLocaleString("uk-UA")}`,
