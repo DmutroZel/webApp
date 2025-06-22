@@ -1,22 +1,22 @@
 const telegramApp = window.Telegram.WebApp;
 telegramApp.expand();
 
-// Логування для діагностики
-console.log("Telegram initDataUnsafe:", telegramApp.initDataUnsafe);
-console.log("Telegram initDataUnsafe.user:", telegramApp.initDataUnsafe.user);
-
 // Стан додатку
 const state = {
   menuItems: [],
   cartItems: [],
-  API_BASE_URL: "",
+  API_BASE_URL: "http://localhost:3000", // Виправлено
   currentUser: {
-    id: telegramApp.initDataUnsafe.user?.id?.toString() || 'unknown',
-    name: telegramApp.initDataUnsafe.user?.username 
-      ? `@${telegramApp.initDataUnsafe.user.username}` 
-      : `${telegramApp.initDataUnsafe.user?.first_name || ''} ${telegramApp.initDataUnsafe.user?.last_name || ''}`.trim() || 'Анонім'
-  }
+    id: telegramApp.initDataUnsafe?.user?.id?.toString() || "unknown",
+    name: telegramApp.initDataUnsafe?.user
+      ? telegramApp.initDataUnsafe.user.username
+        ? `@${telegramApp.initDataUnsafe.user.username}`
+        : `${telegramApp.initDataUnsafe.user.first_name || ""} ${telegramApp.initDataUnsafe.user.last_name || ""}`.trim() || "Анонім"
+      : "Анонім",
+  },
 };
+
+console.log("Current User:", state.currentUser);
 
 console.log("Current User:", state.currentUser);
     // --- ФУНКЦІЇ ДЛЯ МЕНЮ ---
@@ -157,29 +157,37 @@ console.log("Current User:", state.currentUser);
  
 function checkout() {
   if (!state.cartItems.length) {
-    alert("Кошик порожній!");
+    telegramApp.showAlert("Кошик порожній!");
     return;
   }
-  
-  const totalSum = state.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const totalSum = state.cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
   const orderData = {
     chatId: state.currentUser.id,
     userName: state.currentUser.name,
-    items: state.cartItems.map(({ id, name, price, quantity }) => ({ id, name, price, quantity })),
+    items: state.cartItems.map(({ id, name, price, quantity }) => ({
+      id,
+      name,
+      price,
+      quantity,
+    })),
     total: totalSum,
     status: "Очікується",
-    dateTime: new Date().toISOString()
+    dateTime: new Date().toISOString(),
   };
-  
+
   console.log("Sending orderData:", orderData);
-  
+
   try {
     telegramApp.sendData(JSON.stringify(orderData));
     showSuccess();
     resetCartState();
   } catch (error) {
     console.error("Помилка відправки даних:", error);
-    alert("Помилка при оформленні замовлення. Спробуйте ще раз.");
+    telegramApp.showAlert("Помилка при оформленні замовлення. Спробуйте ще раз.");
   }
 }
 
@@ -331,12 +339,44 @@ function checkout() {
       });
 
       // Пошук страв
-      $("#searchInput").on("input", function() {
-        const query = $(this).val().toLowerCase().trim();
-        $(".dish-card").each(function() {
-          $(this).toggle($(this).find(".dish-name").text().toLowerCase().includes(query));
-        });
-      });
+    $("#searchInput").on("input", function () {
+  const query = $(this).val().toLowerCase().trim();
+  if (!query) {
+    displayMenu($(".category.active").data("category") || "all");
+    return;
+  }
+  const filteredItems = state.menuItems.filter(
+    (item) =>
+      item.name.toLowerCase().includes(query) ||
+      item.description.toLowerCase().includes(query) ||
+      item.category.toLowerCase().includes(query)
+  );
+  const $menuContainer = $("#menuContainer").empty();
+  const $menuGrid = $("<div>").addClass("menu-grid");
+  if (!filteredItems.length) {
+    $menuGrid.html('<p class="no-items">Нічого не знайдено.</p>');
+  } else {
+    filteredItems.forEach((item) => {
+      const $card = $("<div>")
+        .addClass("dish-card")
+        .data("item-id", item.id)
+        .html(`
+          <img src="${item.image}" alt="${item.name}" class="dish-image">
+          <div class="dish-info">
+            <h3 class="dish-name">${item.name}</h3>
+            ${getStarRatingHTML(item.averageRating)}
+            <p class="dish-description">${item.description}</p>
+            <div class="dish-price-add">
+              <span class="dish-price">${item.price} грн</span>
+              <button class="add-to-cart" data-id="${item.id}">+</button>
+            </div>
+          </div>
+        `);
+      $menuGrid.append($card);
+    });
+  }
+  $menuContainer.append($menuGrid);
+});
 
       // Обробка подій чату
       chatFab.on('click', toggleChat);

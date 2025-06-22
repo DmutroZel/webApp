@@ -26,31 +26,7 @@ function loadAnalytics() {
     .then(({ data: { salesByCategory, topSellingItems } }) => {
       const ctx = document.getElementById("salesByCategoryChart").getContext("2d");
       if (salesChart) salesChart.destroy();
-      // Примітка: Chart.js не завантажений у вашому HTML, тому цей код може викликати помилку.
-      // Щоб він запрацював, потрібно додати Chart.js до <head>
-      /*
-      salesChart = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: salesByCategory.map((item) => item._id),
-          datasets: [{
-            label: "Продажі",
-            data: salesByCategory.map((item) => item.totalSales),
-            backgroundColor: ["#ff6b35", "#2c3e50", "#f39c12", "#27ae60", "#8e44ad"],
-            borderColor: "#ffffff",
-            borderWidth: 2,
-          }],
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: "top" },
-            title: { display: false },
-          },
-        },
-      });
-      */
-
+    
       const $topItemsList = $("#topSellingItemsList").empty();
       topSellingItems.length
         ? topSellingItems.forEach(({ _id, totalQuantity }) =>
@@ -63,51 +39,61 @@ function loadAnalytics() {
 
 // Нова функція для завантаження замовлень
 function loadOrders() {
-    const $ordersList = $("#adminOrdersList").html(
-        '<div class="loading"><div class="spinner"></div></div>'
-    );
+  const $ordersList = $("#adminOrdersList").html(
+    '<div class="loading"><div class="spinner"></div></div>'
+  );
 
-    axios.get(`${API_BASE_URL}/api/orders`, { params: { adminId } })
-        .then(({ data }) => {
-            state.orders = data;
-            $ordersList.empty();
-            if (!data.length) {
-                $ordersList.html('<p class="no-items">Немає активних замовлень</p>');
-                return;
-            }
+  axios
+    .get(`${API_BASE_URL}/api/orders`, { params: { adminId } })
+    .then(({ data }) => {
+      state.orders = data;
+      $ordersList.empty();
+      if (!data.length) {
+        $ordersList.html('<p class="no-items">Немає активних замовленнь</p>');
+        return;
+      }
 
-            data.forEach(order => {
-                const orderItemsHtml = order.items.map(item =>
-                    `<li>• ${item.name} x ${item.quantity}</li>`
-                ).join('');
+      data.forEach((order) => {
+        const orderItemsHtml = order.items
+          .map((item) => `<li>• ${item.name} x ${item.quantity}</li>`)
+          .join("");
 
-                const orderCard = `
-                    <div class="admin-order-item" data-id="${order._id}">
-                        <div class="order-header">
-                            <h4>Замовлення №${order._id.slice(-6).toUpperCase()}</h4>
-                            <span>${new Date(order.dateTime).toLocaleString('uk-UA')}</span>
-                        </div>
-                        <div class="order-details">
-                            <p><strong>Клієнт:</strong> @${order.userName || 'Анонім'}</p>
-                            <ul>${orderItemsHtml}</ul>
-                        </div>
-                        <div class="order-footer">
-                            <span class="order-total">Всього: ${order.total} грн</span>
-                            <button class="btn btn-accept" data-id="${order._id}">
-                                <span>✅</span> Прийняти
-                            </button>
-                        </div>
-                    </div>
-                `;
-                $ordersList.append(orderCard);
-            });
-        })
-        .catch((error) => {
-            console.error("Помилка завантаження замовлень:", error);
-            $ordersList.html('<p class="error">Помилка завантаження замовлень</p>');
-        });
+        const orderCard = `
+          <div class="admin-order-item" data-id="${order._id}">
+            <div class="order-header">
+              <h4>Замовлення №${order._id.slice(-6).toUpperCase()}</h4>
+              <span>${new Date(order.dateTime).toLocaleString("uk-UA")}</span>
+            </div>
+            <div class="order-details">
+              <p><strong>Клієнт:</strong> @${order.userName || "Анонім"}</p>
+              <p><strong>Статус:</strong> ${order.status}</p>
+              <ul>${orderItemsHtml}</ul>
+            </div>
+            <div class="order-footer">
+              <span class="order-total">Всього: ${order.total} грн</span>
+              ${
+                order.status === "Очікує"
+                  ? `
+                    <button class="btn btn-accept" data-id="${order._id}">
+                      <span>✅</span> Прийняти
+                    </button>
+                    <button class="btn btn-reject" data-id="${order._id}">
+                      <span>❌</span> Відхилити
+                    </button>
+                  `
+                  : ""
+              }
+            </div>
+          </div>
+        `;
+        $ordersList.append(orderCard);
+      });
+    })
+    .catch((error) => {
+      console.error("Помилка завантаження замовлень:", error);
+      $ordersList.html('<p class="error">Помилка завантаження замовлень</p>');
+    });
 }
-
 
 // Завантаження списку страв
 function loadMenuItems() {
@@ -145,7 +131,42 @@ function loadMenuItems() {
       $menuList.html('<p class="error">Помилка завантаження меню</p>');
     });
 }
+$("#adminOrdersList").on("click", ".btn-reject", function () {
+  if (!confirm("Ви впевнені, що хочете відхилити це замовлення?")) return;
 
+  const orderId = $(this).data("id");
+  const $button = $(this);
+
+  $button.prop("disabled", true).html("<span>🔄</span> Обробка...");
+
+  axios
+    .post(`${API_BASE_URL}/api/orders/update-status/${orderId}`, {
+      adminId,
+      status: "Відхилено",
+    })
+    .then(() => {
+      showToast("Замовлення відхилено!");
+      $button
+        .closest(".admin-order-item")
+        .fadeOut(500, function () {
+          $(this).remove();
+          if ($("#adminOrdersList").children().length === 0) {
+            loadOrders();
+          }
+        });
+    })
+    .catch((error) => {
+      showToast(
+        `Помилка: ${
+          error.response?.data?.error || "Не вдалося відхилити замовлення"
+        }`,
+        true
+      );
+      $button
+        .prop("disabled", false)
+        .html('<span>❌</span> Відхилити');
+    });
+});
 // Скидання форми
 function resetForm() {
   $("#menuItemForm")[0].reset();
