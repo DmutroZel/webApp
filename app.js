@@ -6,10 +6,8 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const TelegramBot = require("node-telegram-bot-api");
 const http = require("http");
-const { Server } = require("socket.io");
 const multer = require("multer");
 const fs = require("fs");
-const { v4: uuidv4 } = require('uuid');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 dotenv.config();
@@ -23,9 +21,6 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 // Ініціалізація додатку та сервера
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
-});
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN);
 const PORT = process.env.PORT || 3000;
 
@@ -96,124 +91,26 @@ const menuSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema({
   chatId: String,
   userName: String,
-  items: [{ id: Number, name: String, price: Number, quantity: Number, addedBy: String }],
+  items: [{ id: Number, name: String, price: Number, quantity: Number }],
   total: Number,
   status: { type: String, default: "Очікується" },
   dateTime: { type: Date, default: Date.now },
-  isGroupOrder: Boolean,
-  participants: [{ id: String, name: String }],
   acceptedAt: { type: Date } // Поле для дати прийняття замовлення
 });
 
 // Індекс для автоматичного видалення через 2 години (7200 секунд) після дати в `acceptedAt`
 orderSchema.index({ "acceptedAt": 1 }, { expireAfterSeconds: 7200 });
 
-
-const groupCartSchema = new mongoose.Schema({
-  inviteCode: { type: String, unique: true, required: true },
-  ownerId: { type: String, required: true },
-  participants: [{ id: String, name: String }],
-  items: [{
-    id: Number,
-    name: String,
-    price: Number,
-    quantity: Number,
-    addedBy: String
-  }],
-  createdAt: { type: Date, default: Date.now, expires: '2h' }
-});
-
 const Menu = mongoose.model("Menu", menuSchema);
 const Order = mongoose.model("Order", orderSchema);
-const GroupCart = mongoose.model("GroupCart", groupCartSchema);
-
-// --- WEBSOCKET ЛОГІКА ---
-const userSockets = {};
-io.on("connection", socket => {
-  console.log(`🔗 Користувач підключився: ${socket.id}`);
-  socket.on("register", userId => {
-    userSockets[userId] = socket.id;
-    console.log(`👤 Користувач ${userId} зареєстрований`);
-  });
-  socket.on('create_group_cart', async data => {
-    const { ownerId, ownerName } = data;
-    const inviteCode = uuidv4().slice(0, 8);
-    const groupCart = new GroupCart({
-      inviteCode,
-      ownerId,
-      participants: [{ id: ownerId, name: ownerName }],
-      items: []
-    });
-    await groupCart.save();
-    socket.join(inviteCode);
-    socket.emit('group_cart_created', { inviteCode });
-  });
-  socket.on('join_group_cart', async data => {
-    const { inviteCode, userId, userName } = data;
-    const groupCart = await GroupCart.findOne({ inviteCode });
-    if (groupCart) {
-      if (!groupCart.participants.some(p => p.id === userId)) {
-        groupCart.participants.push({ id: userId, name: userName });
-        await groupCart.save();
-      }
-      socket.join(inviteCode);
-      io.to(inviteCode).emit('group_cart_updated', groupCart);
-    } else {
-      socket.emit('error', { message: 'Спільний кошик не знайдено' });
-    }
-  });
-  socket.on('add_to_group_cart', async data => {
-    const { inviteCode, item, userName } = data;
-    const groupCart = await GroupCart.findOne({ inviteCode });
-    if (groupCart) {
-      const existingItem = groupCart.items.find(i => i.id === item.id && i.addedBy === userName);
-      if (existingItem) {
-        existingItem.quantity++;
-      } else {
-        groupCart.items.push({ ...item, quantity: 1, addedBy: userName });
-      }
-      await groupCart.save();
-      io.to(inviteCode).emit('group_cart_updated', groupCart);
-    }
-  });
-  socket.on('update_group_cart_item', async ({ inviteCode, itemId, quantity, userName }) => {
-    const groupCart = await GroupCart.findOne({ inviteCode });
-    if (groupCart) {
-      const item = groupCart.items.find(i => i.id === itemId && i.addedBy === userName);
-      if (item) {
-        item.quantity = quantity;
-        if (item.quantity <= 0) {
-          groupCart.items = groupCart.items.filter(i => !(i.id === itemId && i.addedBy === userName));
-        }
-        await groupCart.save();
-        io.to(inviteCode).emit('group_cart_updated', groupCart);
-      }
-    }
-  });
-  socket.on("disconnect", () => {
-    for (const [userId, socketId] of Object.entries(userSockets)) {
-      if (socketId === socket.id) {
-        delete userSockets[userId];
-        console.log(`👻 Користувач ${userId} відключився`);
-        break;
-      }
-    }
-  });
-});
 
 // --- TELEGRAM BOT ЛОГІКА ---
 
 bot.onText(/\/start/, msg => {
-  const deepLinkPayload = msg.text.split(' ')[1];
-  let webAppUrl = config.WEBAPP_URL;
-  if (deepLinkPayload && deepLinkPayload.startsWith('groupCart_')) {
-    const inviteCode = deepLinkPayload.replace('groupCart_', '');
-    webAppUrl = `${config.WEBAPP_URL}/index.html?groupCart=${inviteCode}`;
-  }
   bot.sendMessage(msg.chat.id, "👋 Вітаємо у FoodNow! Оберіть дію:", {
     reply_markup: {
       keyboard: [
-        [{ text: "🛒 Замовити їжу", web_app: { url: webAppUrl } }],
+        [{ text: "🛒 Замовити їжу", web_app: { url: config.WEBAPP_URL } }],
         [{ text: "📊 Мої замовлення", web_app: { url: `${config.WEBAPP_URL}/orders.html?userId=${msg.chat.id}` } }],
       ],
       resize_keyboard: true,
@@ -240,7 +137,15 @@ bot.on("message", async msg => {
   try {
     const data = JSON.parse(msg.web_app_data.data);
     const chatId = data.chatId && data.chatId !== "unknown" ? data.chatId.toString() : msg.chat.id.toString();
-    const userName = data.userName && data.userName !== "unknown" ? data.userName : msg.from.username || "Анонім";
+    // Оновлена логіка для userName
+    const userName = data.userName && data.userName !== "unknown" 
+      ? data.userName 
+      : msg.from.username 
+        ? `@${msg.from.username}` 
+        : `${msg.from.first_name || ''} ${msg.from.last_name || ''}`.trim() || 'Анонім';
+    
+    console.log("Received order from:", { chatId, userName, data }); // Додаємо лог для діагностики
+
     const order = new Order({
       chatId,
       userName,
@@ -248,33 +153,24 @@ bot.on("message", async msg => {
       total: data.total,
       status: "Очікується",
       dateTime: new Date(data.dateTime),
-      isGroupOrder: data.isGroupOrder,
-      participants: data.participants
     });
     await order.save();
     const orderIdShort = order._id.toString().slice(-6).toUpperCase();
-    if (data.isGroupOrder && data.participants) {
-      const creatorName = data.participants.find(p => p.id === chatId)?.name || userName;
-      for (const participant of data.participants) {
-        await bot.sendMessage(
-          participant.id,
-          `✅ Спільне замовлення №${orderIdShort} від ${creatorName} було успішно оформлено!\nСтатус: Очікується\nЗагальна сума: ${data.total} грн`
-        );
-      }
-    } else {
-      await bot.sendMessage(
-        chatId,
-        `✅ Ваше замовлення №${orderIdShort} прийнято.\nСтатус: Очікується\nСума: ${data.total} грн`
-      );
-    }
+    
+    await bot.sendMessage(
+      chatId,
+      `✅ Ваше замовлення №${orderIdShort} прийнято.\nСтатус: Очікується\nСума: ${data.total} грн`
+    );
+    
     const orderDetails = data.items
-      .map(item => `• ${item.name} x${item.quantity} (додав/ла ${item.addedBy || 'власник'}) - ${item.price * item.quantity} грн`)
+      .map(item => `• ${item.name} x${item.quantity} - ${item.price * item.quantity} грн`)
       .join("\n");
+      
     for (const adminId of config.ADMIN_IDS) {
       await bot.sendMessage(
         adminId,
-        `🔔 *Нове ${data.isGroupOrder ? 'спільне ' : ''}замовлення №${orderIdShort}*\n\n` +
-        `*Від:* @${userName} (ID: \`${chatId}\`)\n` +
+        `🔔 *Нове замовлення №${orderIdShort}*\n\n` +
+        `*Від:* ${userName} (ID: \`${chatId}\`)\n` + // Використовуємо userName без @ для адмінів
         `*Склад:*\n${orderDetails}\n` +
         `*Сума:* ${data.total} грн\n` +
         `*Час:* ${new Date().toLocaleString("uk-UA")}`,
@@ -300,21 +196,11 @@ bot.on("message", async msg => {
             ],
           ],
         };
-        if (data.isGroupOrder && data.participants) {
-          for (const participant of data.participants) {
-            await bot.sendMessage(
-              participant.id,
-              `Будь ласка, оцініть "${item.name}" зі спільного замовлення №${orderIdShort}:`,
-              { reply_markup: ratingKeyboard }
-            );
-          }
-        } else {
-          await bot.sendMessage(
-            chatId,
-            `Будь ласка, оцініть "${item.name}" з вашого замовлення №${orderIdShort}:`,
-            { reply_markup: ratingKeyboard }
-          );
-        }
+        await bot.sendMessage(
+          chatId,
+          `Будь ласка, оцініть "${item.name}" з вашого замовлення №${orderIdShort}:`,
+          { reply_markup: ratingKeyboard }
+        );
       }
     }, 10000);
   } catch (error) {
@@ -512,46 +398,6 @@ app.post("/api/menu/:id/rate", async (req, res) => {
   }
 });
 
-app.get('/api/group-cart/:inviteCode', async (req, res) => {
-  try {
-    const { inviteCode } = req.params;
-    const groupCart = await GroupCart.findOne({ inviteCode });
-    if (!groupCart) {
-      return res.status(404).json({ error: 'Спільний кошик не знайдено.' });
-    }
-    res.json(groupCart);
-  } catch (error) {
-    res.status(500).json({ error: 'Помилка сервера' });
-  }
-});
-
-app.post('/api/group-cart/checkout', async (req, res) => {
-  const { inviteCode } = req.body;
-  const groupCart = await GroupCart.findOne({ inviteCode });
-  if (!groupCart) {
-    return res.status(404).json({ error: 'Кошик не знайдено' });
-  }
-  const totalSum = groupCart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const orderData = {
-    chatId: groupCart.ownerId,
-    userName: groupCart.participants.find(p => p.id === groupCart.ownerId)?.name || 'Власник кошика',
-    items: groupCart.items,
-    total: totalSum,
-    status: "Очікується",
-    dateTime: new Date().toISOString(),
-    isGroupOrder: true,
-    participants: groupCart.participants,
-  };
-  const fakeMsg = {
-    chat: { id: groupCart.ownerId },
-    from: { username: orderData.userName },
-    web_app_data: { data: JSON.stringify(orderData) }
-  };
-  bot.emit('message', fakeMsg);
-  await GroupCart.deleteOne({ inviteCode });
-  res.json({ success: true, message: "Замовлення оформлено!" });
-});
-
 app.get("/api/orders", async (req, res) => {
   try {
     const { adminId, userId } = req.query;
@@ -588,25 +434,9 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
     const finalMessage = status === "Прийнято"
         ? `✅ Ваше замовлення №*${orderIdShort}* прийнято та готується!`
         : `🔔 Статус замовлення №*${orderIdShort}*: *${status}*`;
-    const groupMessage = status === "Прийнято"
-        ? `✅ Спільне замовлення №*${orderIdShort}* прийнято та готується!`
-        : `🔔 Статус спільного замовлення №*${orderIdShort}*: *${status}*`;
 
-    if (order.isGroupOrder && order.participants) {
-      for (const participant of order.participants) {
-        await bot.sendMessage(participant.id, groupMessage, { parse_mode: "Markdown" });
-      }
-    } else {
-      await bot.sendMessage(order.chatId, finalMessage, { parse_mode: "Markdown" });
-    }
-
-    const userSocketId = userSockets[order.chatId];
-    if (userSocketId) {
-      io.to(userSocketId).emit("status_updated", {
-        orderId: order._id,
-        status,
-      });
-    }
+    await bot.sendMessage(order.chatId, finalMessage, { parse_mode: "Markdown" });
+    
     res.json({ success: true, order });
   } catch (error) {
     console.error("Помилка оновлення статусу:", error);
