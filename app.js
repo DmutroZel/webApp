@@ -12,8 +12,6 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 dotenv.config();
 
-
-
 // Налаштування Google Generative AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -54,8 +52,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-
-
 // Підключення до MongoDB
 mongoose
   .connect(config.MONGODB_URI, {
@@ -95,7 +91,7 @@ const orderSchema = new mongoose.Schema({
   total: Number,
   status: { type: String, default: "Очікується" },
   dateTime: { type: Date, default: Date.now },
-  acceptedAt: { type: Date } // Поле для дати прийняття замовлення
+  acceptedAt: { type: Date }
 });
 
 // Індекс для автоматичного видалення через 2 години (7200 секунд) після дати в `acceptedAt`
@@ -179,32 +175,6 @@ bot.on("message", async msg => {
         { parse_mode: "Markdown" }
       );
     }
-    setTimeout(async () => {
-      const uniqueItemsToRate = data.items.reduce((acc, current) => {
-        if (!acc.find(item => item.id === current.id)) {
-          acc.push(current);
-        }
-        return acc;
-      }, []);
-      for (const item of uniqueItemsToRate) {
-        const ratingKeyboard = {
-          inline_keyboard: [
-            [
-              { text: "1 ⭐", callback_data: `rate_${order._id}_${item.id}_1` },
-              { text: "2 ⭐", callback_data: `rate_${order._id}_${item.id}_2` },
-              { text: "3 ⭐", callback_data: `rate_${order._id}_${item.id}_3` },
-              { text: "4 ⭐", callback_data: `rate_${order._id}_${item.id}_4` },
-              { text: "5 ⭐", callback_data: `rate_${order._id}_${item.id}_5` },
-            ],
-          ],
-        };
-        await bot.sendMessage(
-          chatId,
-          `Будь ласка, оцініть "${item.name}" з вашого замовлення №${orderIdShort}:`,
-          { reply_markup: ratingKeyboard }
-        );
-      }
-    }, 10000);
   } catch (error) {
     console.error("❌ Помилка обробки замовлення:", error);
   }
@@ -403,7 +373,6 @@ app.post("/api/menu/:id/rate", async (req, res) => {
 app.get("/api/orders", async (req, res) => {
   try {
     const { adminId, userId } = req.query;
-    // Для адміна показуємо тільки замовлення, що очікують
     const query = adminId && config.ADMIN_IDS.includes(parseInt(adminId))
       ? { status: "Очікується" }
       : userId ? { chatId: userId } : {};
@@ -425,23 +394,19 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
       return res.status(404).json({ error: "Замовлення не знайдено" });
     }
     order.status = status;
-    // Якщо статус 'Прийнято', встановлюємо час для автоматичного видалення
     if (status === "Прийнято") {
         order.acceptedAt = new Date();
     }
     await order.save();
     const orderIdShort = order._id.toString().slice(-6).toUpperCase();
 
-    // Формуємо повідомлення для користувача
     const finalMessage = status === "Прийнято"
         ? `✅ Ваше замовлення №*${orderIdShort}* прийнято та готується!`
         : `🔔 Статус замовлення №*${orderIdShort}*: *${status}*`;
 
     await bot.sendMessage(order.chatId, finalMessage, { parse_mode: "Markdown" });
 
-    // --- Додаємо надсилання рейтингу після прийняття ---
     if (status === "Прийнято") {
-      // Унікальні товари для оцінки
       const uniqueItemsToRate = order.items.reduce((acc, current) => {
         if (!acc.find(item => item.id === current.id)) {
           acc.push(current);
@@ -467,7 +432,6 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
         );
       }
     }
-    // --- Кінець додавання ---
 
     res.json({ success: true, order });
   } catch (error) {
@@ -475,6 +439,7 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
     res.status(500).json({ error: "Помилка сервера" });
   }
 });
+
 app.get("/api/analytics/summary", async (req, res) => {
   try {
     const { adminId } = req.query;
