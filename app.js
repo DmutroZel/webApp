@@ -438,14 +438,43 @@ app.post("/api/orders/update-status/:id", async (req, res) => {
         : `🔔 Статус замовлення №*${orderIdShort}*: *${status}*`;
 
     await bot.sendMessage(order.chatId, finalMessage, { parse_mode: "Markdown" });
-    
+
+    // --- Додаємо надсилання рейтингу після прийняття ---
+    if (status === "Прийнято") {
+      // Унікальні товари для оцінки
+      const uniqueItemsToRate = order.items.reduce((acc, current) => {
+        if (!acc.find(item => item.id === current.id)) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+      for (const item of uniqueItemsToRate) {
+        const ratingKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "1 ⭐", callback_data: `rate_${order._id}_${item.id}_1` },
+              { text: "2 ⭐", callback_data: `rate_${order._id}_${item.id}_2` },
+              { text: "3 ⭐", callback_data: `rate_${order._id}_${item.id}_3` },
+              { text: "4 ⭐", callback_data: `rate_${order._id}_${item.id}_4` },
+              { text: "5 ⭐", callback_data: `rate_${order._id}_${item.id}_5` },
+            ],
+          ],
+        };
+        await bot.sendMessage(
+          order.chatId,
+          `Будь ласка, оцініть "${item.name}" з вашого замовлення №${orderIdShort}:`,
+          { reply_markup: ratingKeyboard }
+        );
+      }
+    }
+    // --- Кінець додавання ---
+
     res.json({ success: true, order });
   } catch (error) {
     console.error("Помилка оновлення статусу:", error);
     res.status(500).json({ error: "Помилка сервера" });
   }
 });
-
 app.get("/api/analytics/summary", async (req, res) => {
   try {
     const { adminId } = req.query;
