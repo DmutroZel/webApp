@@ -14,10 +14,13 @@
     <div class="header">
       <div class="logo"></div>
       <div class="header-buttons">
-          <button class="cart-button" id="openCart">
-            🛒
-            <span class="cart-count" id="cartCount">0</span>
-          </button>
+        <button class="theme-toggle" id="themeToggle" aria-label="Переключити тему">
+          🌙
+        </button>
+        <button class="cart-button" id="openCart">
+          🛒
+          <span class="cart-count" id="cartCount">0</span>
+        </button>
       </div>
     </div>
 
@@ -35,10 +38,10 @@
     </div>
 
     <div id="menuContainer">
-        <div class="loading">
-            <div class="spinner"></div>
-        </div>
+      <div class="loading">
+        <div class="spinner"></div>
       </div>
+    </div>
   </div>
 
   <div class="cart-overlay" id="cartOverlay">
@@ -60,28 +63,27 @@
     <p>Статус замовлення: <strong>Очікується</strong></p>
   </div>
  
- <div class="modal-overlay" id="dishModalOverlay">
-  <div class="modal-container" id="dishModalContainer">
+  <div class="modal-overlay" id="dishModalOverlay">
+    <div class="modal-container" id="dishModalContainer">
       <button class="close-modal" id="closeDishModal">×</button>
       <img src="" alt="Dish Image" class="modal-dish-image" id="modalDishImage">
       <div class="modal-dish-info">
-          <h2 class="modal-dish-name" id="modalDishName"></h2>
-          <p class="modal-dish-description" id="modalDishDescription"></p>
-          <div class="modal-dish-price-add">
-              <span class="modal-dish-price" id="modalDishPrice"></span>
-              <button class="add-to-cart-modal" id="modalAddToCartBtn">Додати в кошик</button>
-          </div>
-         
+        <h2 class="modal-dish-name" id="modalDishName"></h2>
+        <p class="modal-dish-description" id="modalDishDescription"></p>
+        <div class="modal-dish-price-add">
+          <span class="modal-dish-price" id="modalDishPrice"></span>
+          <button class="add-to-cart-modal" id="modalAddToCartBtn">Додати в кошик</button>
+        </div>
       </div>
+    </div>
   </div>
-</div>
 
-<div class="chat-widget">
+  <div class="chat-widget">
     <button class="chat-fab" id="chatFab">💬</button>
     <div class="chat-window" id="chatWindow">
       <div class="chat-header">
         <span>FoodNow Асистент</span>
-        <button class="close-chat" id="closeChatBtn">&times;</button>
+        <button class="close-chat" id="closeChatBtn">×</button>
       </div>
       <div class="chat-body" id="chatBody">
         <div class="chat-message bot">
