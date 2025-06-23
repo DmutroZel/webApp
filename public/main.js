@@ -16,9 +16,40 @@ const state = {
 
 // Ініціалізація теми
 function initTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  updateThemeToggleIcon(savedTheme);
+  // Check if Telegram provides theme information
+  const telegramTheme = telegramApp.themeParams?.bg_color ? 
+    (isDarkColor(telegramApp.themeParams.bg_color) ? 'dark' : 'light') : null;
+  
+  // Priority: 1. Local storage, 2. Telegram theme, 3. Default to light
+  const savedTheme = localStorage.getItem('theme');
+  const initialTheme = savedTheme || telegramTheme || 'light';
+  
+  document.documentElement.setAttribute('data-theme', initialTheme);
+  document.body.setAttribute('data-telegram-theme', initialTheme);
+  updateThemeToggleIcon(initialTheme);
+
+  // Listen for Telegram theme changes
+  telegramApp.onEvent('themeChanged', () => {
+    const newTheme = isDarkColor(telegramApp.themeParams.bg_color) ? 'dark' : 'light';
+    // Only apply Telegram theme change if user hasn't set a preference
+    if (!localStorage.getItem('theme')) {
+      document.documentElement.setAttribute('data-theme', newTheme);
+      document.body.setAttribute('data-telegram-theme', newTheme);
+      updateThemeToggleIcon(newTheme);
+    }
+  });
+}
+
+// Helper function to determine if a color is dark
+function isDarkColor(hex) {
+  if (!hex) return false;
+  const color = hex.replace('#', '');
+  const r = parseInt(color.substr(0, 2), 16);
+  const g = parseInt(color.substr(2, 2), 16);
+  const b = parseInt(color.substr(4, 2), 16);
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
 }
 
 function updateThemeToggleIcon(theme) {
@@ -31,6 +62,7 @@ function toggleTheme() {
   const currentTheme = document.documentElement.getAttribute('data-theme');
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', newTheme);
+  document.body.setAttribute('data-telegram-theme', newTheme);
   localStorage.setItem('theme', newTheme);
   updateThemeToggleIcon(newTheme);
 }

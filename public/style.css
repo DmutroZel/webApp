@@ -9,14 +9,16 @@
   --accent-color: #FF6B35;
   --light-orange: #FFF4F0;
   --medium-orange: #FFE5DB;
-  --text-primary: var(--tg-theme-text-color, #2C2C2C);
+  /* Використовуємо фіксовані кольори для світлої теми за замовчуванням */
+  --text-primary: #2C2C2C;
   --text-secondary: #666666;
   --text-muted: #999999;
-  --background-main: var(--tg-theme-bg-color, #FAFAFA);
+  --background-main: #FAFAFA;
   --background-card: #FFFFFF;
   --border-light: rgba(255, 138, 80, 0.2);
 }
 
+/* Темна тема вручну (коли користувач перемикає в додатку) */
 [data-theme="dark"] {
   --text-primary: #E0E0E0;
   --text-secondary: #A0A0A0;
@@ -30,14 +32,42 @@
   --medium-orange: #3D2A24;
 }
 
+/* Автоматичне визначення темної теми Telegram */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --text-primary: #E0E0E0;
+    --text-secondary: #A0A0A0;
+    --text-muted: #707070;
+    --background-main: #121212;
+    --background-card: #1E1E1E;
+    --border-light: rgba(255, 138, 80, 0.3);
+    --light-orange: #2A1E1A;
+    --medium-orange: #3D2A24;
+  }
+}
+
+/* Перевизначення для Telegram Web App теми */
 body {
   font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
   background: #FFB380;
+  /* Використовуємо власні змінні замість Telegram змінних для основного тексту */
   color: var(--text-primary);
   min-height: 100vh;
   transition: background-color 0.3s, color 0.3s;
+}
+
+/* Спеціальна обробка для Telegram темної теми */
+body[data-telegram-theme="dark"] {
+  --text-primary: #E0E0E0;
+  --text-secondary: #A0A0A0;
+  --text-muted: #707070;
+  --background-main: #121212;
+  --background-card: #1E1E1E;
+  --border-light: rgba(255, 138, 80, 0.3);
+  --light-orange: #2A1E1A;
+  --medium-orange: #3D2A24;
 }
 
 .container {
@@ -60,7 +90,8 @@ body {
   transition: background-color 0.3s;
 }
 
-[data-theme="dark"] .header {
+[data-theme="dark"] .header,
+body[data-telegram-theme="dark"] .header {
   background: rgba(30, 30, 30, 0.9);
 }
 
@@ -158,7 +189,8 @@ body {
   background: #fff;
 }
 
-[data-theme="dark"] .categories::-webkit-scrollbar {
+[data-theme="dark"] .categories::-webkit-scrollbar,
+body[data-telegram-theme="dark"] .categories::-webkit-scrollbar {
   background: #1E1E1E;
 }
 
@@ -171,7 +203,8 @@ body {
   background: #fff;
 }
 
-[data-theme="dark"] .categories::-webkit-scrollbar-track {
+[data-theme="dark"] .categories::-webkit-scrollbar-track,
+body[data-telegram-theme="dark"] .categories::-webkit-scrollbar-track {
   background: #1E1E1E;
 }
 
@@ -187,7 +220,8 @@ body {
   font-weight: 500;
 }
 
-[data-theme="dark"] .category {
+[data-theme="dark"] .category,
+body[data-telegram-theme="dark"] .category {
   background: rgba(30, 30, 30, 0.9);
   border-color: rgba(255, 255, 255, 0.2);
 }
@@ -217,7 +251,8 @@ body {
   transition: background-color 0.2s ease;
 }
 
-[data-theme="dark"] .dish-card {
+[data-theme="dark"] .dish-card,
+body[data-telegram-theme="dark"] .dish-card {
   background: rgba(30, 30, 30, 0.95);
   border-color: rgba(255, 255, 255, 0.1);
 }
@@ -226,7 +261,8 @@ body {
   background: rgba(255, 255, 255, 1);
 }
 
-[data-theme="dark"] .dish-card:hover {
+[data-theme="dark"] .dish-card:hover,
+body[data-telegram-theme="dark"] .dish-card:hover {
   background: rgba(40, 40, 40, 1);
 }
 
@@ -238,7 +274,8 @@ body {
   background-color: #f8f8f8;
 }
 
-[data-theme="dark"] .dish-image {
+[data-theme="dark"] .dish-image,
+body[data-telegram-theme="dark"] .dish-image {
   background-color: #2E2E2E;
 }
 
@@ -319,7 +356,8 @@ body {
   z-index: 1000;
 }
 
-[data-theme="dark"] .cart-container {
+[data-theme="dark"] .cart-container,
+body[data-telegram-theme="dark"] .cart-container {
   background: rgba(30, 30, 30, 0.95);
 }
 
@@ -602,7 +640,8 @@ body {
   transition: all 0.2s ease;
 }
 
-[data-theme="dark"] .my-orders-btn {
+[data-theme="dark"] .my-orders-btn,
+body[data-telegram-theme="dark"] .my-orders-btn {
   background: #1E1E1E;
 }
 
@@ -919,7 +958,8 @@ body {
   border-bottom-left-radius: 4px;
 }
 
-[data-theme="dark"] .chat-message.bot {
+[data-theme="dark"] .chat-message.bot,
+body[data-telegram-theme="dark"] .chat-message.bot {
   background-color: #2E2E2E;
 }
 
@@ -934,7 +974,8 @@ body {
   border-top: 1px solid #eee;
 }
 
-[data-theme="dark"] .chat-footer {
+[data-theme="dark"] .chat-footer,
+body[data-telegram-theme="dark"] .chat-footer {
   border-top: 1px solid #2E2E2E;
 }
 
@@ -947,7 +988,8 @@ body {
   color: var(--text-primary);
 }
 
-[data-theme="dark"] #chatInput {
+[data-theme="dark"] #chatInput,
+body[data-telegram-theme="dark"] #chatInput {
   background-color: #2E2E2E;
 }
 
