@@ -966,22 +966,3 @@ body {
   margin-left: 10px;
   cursor: pointer;
 }
-@media (prefers-color-scheme: dark) {
-  body, .container, .header, .dish-card, .cart-container, .modal-container, .chat-window {
-    background: #121212 !important;
-    color: #E0E0E0 !important;
-  }
-
-  .dish-name, .modal-dish-name, .cart-item-name, .category, h2, p, .chat-message {
-    color: #E0E0E0 !important;
-  }
-
-  .chat-message.bot {
-    background: #2E2E2E !important;
-  }
-
-  #chatInput {
-    background: #2E2E2E !important;
-    color: #E0E0E0 !important;
-  }
-}
